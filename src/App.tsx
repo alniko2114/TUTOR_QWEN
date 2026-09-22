@@ -4,9 +4,10 @@ import { exercises, categories } from './data/exercises';
 
 type View = 'welcome' | 'home' | 'section' | 'exercises' | 'sandbox' | 'exercise-detail';
 
-interface GoogleAuth {
-  email: string;
-  password: string;
+interface APIConfig {
+  provider: 'openrouter' | 'dashscope' | 'groq' | 'huggingface' | 'custom';
+  apiKey: string;
+  model: string;
   remember: boolean;
 }
 
@@ -23,20 +24,20 @@ export default function App() {
   const [userPrompt, setUserPrompt] = useState('');
   const [feedback, setFeedback] = useState<string | null>(null);
   
-  // Google auth state
-  const [googleAuth, setGoogleAuth] = useState<GoogleAuth>(() => {
-    const saved = localStorage.getItem('qwen_google_auth');
+  // API config state
+  const [apiConfig, setApiConfig] = useState<APIConfig>(() => {
+    const saved = localStorage.getItem('qwen_api_config');
     if (saved) {
       try {
         return JSON.parse(saved);
       } catch {
-        return { email: '', password: '', remember: false };
+        return { provider: 'openrouter', apiKey: '', model: 'qwen/qwen-2.5-72b-instruct', remember: false };
       }
     }
-    return { email: '', password: '', remember: false };
+    return { provider: 'openrouter', apiKey: '', model: 'qwen/qwen-2.5-72b-instruct', remember: false };
   });
-  const [showAuthForm, setShowAuthForm] = useState(false);
-  const [authStatus, setAuthStatus] = useState<'idle' | 'saved' | 'error'>('idle');
+  const [showApiForm, setShowApiForm] = useState(false);
+  const [apiStatus, setApiStatus] = useState<'idle' | 'saved' | 'error'>('idle');
 
   const totalProgress = Math.round(
     ((completedSections.size + completedExercises.size) / (sections.length + exercises.length)) * 100
@@ -56,21 +57,21 @@ export default function App() {
     setView('sandbox');
   }, []);
 
-  const saveGoogleAuth = useCallback((auth: GoogleAuth) => {
-    if (auth.remember) {
-      localStorage.setItem('qwen_google_auth', JSON.stringify(auth));
+  const saveApiConfig = useCallback((config: APIConfig) => {
+    if (config.remember) {
+      localStorage.setItem('qwen_api_config', JSON.stringify(config));
     } else {
-      localStorage.removeItem('qwen_google_auth');
+      localStorage.removeItem('qwen_api_config');
     }
-    setGoogleAuth(auth);
-    setAuthStatus('saved');
-    setTimeout(() => setAuthStatus('idle'), 2000);
+    setApiConfig(config);
+    setApiStatus('saved');
+    setTimeout(() => setApiStatus('idle'), 2000);
   }, []);
 
-  const clearGoogleAuth = useCallback(() => {
-    localStorage.removeItem('qwen_google_auth');
-    setGoogleAuth({ email: '', password: '', remember: false });
-    setAuthStatus('idle');
+  const clearApiConfig = useCallback(() => {
+    localStorage.removeItem('qwen_api_config');
+    setApiConfig({ provider: 'openrouter', apiKey: '', model: 'qwen/qwen-2.5-72b-instruct', remember: false });
+    setApiStatus('idle');
   }, []);
 
   const analyzePrompt = useCallback((_prompt: string, goodPrompt: string) => {
@@ -375,12 +376,12 @@ export default function App() {
             sandboxPrompt={sandboxPrompt}
             showSandbox={showSandbox}
             setShowSandbox={setShowSandbox}
-            googleAuth={googleAuth}
-            saveGoogleAuth={saveGoogleAuth}
-            clearGoogleAuth={clearGoogleAuth}
-            showAuthForm={showAuthForm}
-            setShowAuthForm={setShowAuthForm}
-            authStatus={authStatus}
+            apiConfig={apiConfig}
+            saveApiConfig={saveApiConfig}
+            clearApiConfig={clearApiConfig}
+            showApiForm={showApiForm}
+            setShowApiForm={setShowApiForm}
+            apiStatus={apiStatus}
           />
         )}
       </main>
@@ -684,24 +685,28 @@ function ExerciseDetail({ exercise, cardClass, goodClass, badClass, infoClass, d
 }
 
 // ==================== SANDBOX VIEW ====================
-function SandboxView({ cardClass, darkMode, sandboxPrompt, showSandbox, setShowSandbox, googleAuth, saveGoogleAuth, clearGoogleAuth, showAuthForm, setShowAuthForm, authStatus }: {
+function SandboxView({ cardClass, darkMode, sandboxPrompt, showSandbox, setShowSandbox, apiConfig, saveApiConfig, clearApiConfig, showApiForm, setShowApiForm, apiStatus }: {
   cardClass: string;
   darkMode: boolean;
   sandboxPrompt: string;
   showSandbox: boolean;
   setShowSandbox: (v: boolean) => void;
-  googleAuth: GoogleAuth;
-  saveGoogleAuth: (auth: GoogleAuth) => void;
-  clearGoogleAuth: () => void;
-  showAuthForm: boolean;
-  setShowAuthForm: (v: boolean) => void;
-  authStatus: 'idle' | 'saved' | 'error';
+  apiConfig: APIConfig;
+  saveApiConfig: (config: APIConfig) => void;
+  clearApiConfig: () => void;
+  showApiForm: boolean;
+  setShowApiForm: (v: boolean) => void;
+  apiStatus: 'idle' | 'saved' | 'error';
 }) {
   const [localPrompt, setLocalPrompt] = useState(sandboxPrompt);
   const [copied, setCopied] = useState(false);
-  const [authEmail, setAuthEmail] = useState(googleAuth.email);
-  const [authPassword, setAuthPassword] = useState(googleAuth.password);
-  const [authRemember, setAuthRemember] = useState(googleAuth.remember);
+  const [provider, setProvider] = useState(apiConfig.provider);
+  const [apiKey, setApiKey] = useState(apiConfig.apiKey);
+  const [model, setModel] = useState(apiConfig.model);
+  const [remember, setRemember] = useState(apiConfig.remember);
+  const [chatHistory, setChatHistory] = useState<Array<{role: string, content: string}>>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
 
   useEffect(() => {
     if (sandboxPrompt) setLocalPrompt(sandboxPrompt);
@@ -713,45 +718,204 @@ function SandboxView({ cardClass, darkMode, sandboxPrompt, showSandbox, setShowS
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSaveAuth = () => {
-    if (!authEmail.trim()) {
-      alert('Введите email');
+  const handleSaveConfig = () => {
+    if (!apiKey.trim()) {
+      alert('Введите API-ключ');
       return;
     }
-    saveGoogleAuth({
-      email: authEmail,
-      password: authPassword,
-      remember: authRemember
+    saveApiConfig({
+      provider,
+      apiKey,
+      model,
+      remember
     });
+  };
+
+  const sendToAPI = async () => {
+    if (!localPrompt.trim()) {
+      alert('Введите промпт');
+      return;
+    }
+    if (!apiConfig.apiKey) {
+      alert('Сначала настройте API-ключ в разделе "API-ключ для песочницы"');
+      return;
+    }
+
+    setIsLoading(true);
+    const newHistory = [...chatHistory, { role: 'user', content: localPrompt }];
+    setChatHistory(newHistory);
+
+    try {
+      let response;
+      const messages = newHistory.map(msg => ({ role: msg.role, content: msg.content }));
+
+      if (apiConfig.provider === 'openrouter') {
+        response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiConfig.apiKey}`,
+            'HTTP-Referer': window.location.origin,
+          },
+          body: JSON.stringify({
+            model: apiConfig.model,
+            messages: messages,
+          }),
+        });
+      } else if (apiConfig.provider === 'dashscope') {
+        response = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiConfig.apiKey}`,
+          },
+          body: JSON.stringify({
+            model: apiConfig.model,
+            input: { messages: messages },
+          }),
+        });
+      } else if (apiConfig.provider === 'groq') {
+        response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiConfig.apiKey}`,
+          },
+          body: JSON.stringify({
+            model: apiConfig.model,
+            messages: messages,
+          }),
+        });
+      } else if (apiConfig.provider === 'huggingface') {
+        response = await fetch(`https://api-inference.huggingface.co/models/${apiConfig.model}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiConfig.apiKey}`,
+          },
+          body: JSON.stringify({
+            inputs: localPrompt,
+          }),
+        });
+      }
+
+      if (response && response.ok) {
+        const data = await response.json();
+        let assistantMessage = '';
+        
+        if (apiConfig.provider === 'openrouter' || apiConfig.provider === 'groq') {
+          assistantMessage = data.choices?.[0]?.message?.content || 'Нет ответа';
+        } else if (apiConfig.provider === 'dashscope') {
+          assistantMessage = data.output?.text || 'Нет ответа';
+        } else if (apiConfig.provider === 'huggingface') {
+          assistantMessage = data[0]?.generated_text || 'Нет ответа';
+        }
+
+        setChatHistory([...newHistory, { role: 'assistant', content: assistantMessage }]);
+      } else {
+        const errorText = await response?.text() || 'Ошибка запроса';
+        setChatHistory([...newHistory, { role: 'assistant', content: `❌ Ошибка: ${errorText}` }]);
+      }
+    } catch (error) {
+      setChatHistory([...newHistory, { role: 'assistant', content: `❌ Ошибка сети: ${error}` }]);
+    } finally {
+      setIsLoading(false);
+      setLocalPrompt('');
+    }
   };
 
   return (
     <div className="space-y-5">
       <h1 className="text-2xl font-bold">🧪 Песочница QWEN</h1>
-      <p className="opacity-70 text-sm">Практикуйтесь в написании промптов и проверяйте результат в QWEN. Скопируйте промпт и вставьте в чат QWEN.</p>
+      <p className="opacity-70 text-sm">Практикуйтесь в написании промптов и проверяйте результат в QWEN через API или откройте chat.qwen.ai напрямую.</p>
 
-      {/* Google Auth Section */}
+      {/* API Key Instructions */}
       <div className={`border rounded-lg p-5 ${cardClass}`}>
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-semibold flex items-center gap-2">
-            🔐 Авторизация Google для QWEN
+            🔑 Как получить бесплатный API-ключ
           </h2>
           <button
-            onClick={() => setShowAuthForm(!showAuthForm)}
+            onClick={() => setShowInstructions(!showInstructions)}
             className="text-sm px-3 py-1 border rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >
-            {showAuthForm ? 'Скрыть' : 'Настроить'}
+            {showInstructions ? 'Скрыть' : 'Показать инструкцию'}
           </button>
         </div>
 
-        {googleAuth.email && !showAuthForm && (
+        {showInstructions && (
+          <div className="space-y-4 text-sm">
+            <div className={`p-4 rounded-lg border ${darkMode ? 'bg-blue-900/20 border-blue-700' : 'bg-blue-50 border-blue-200'}`}>
+              <h3 className="font-semibold mb-2">🌟 Вариант 1: OpenRouter (рекомендуется)</h3>
+              <ol className="list-decimal list-inside space-y-1 opacity-90">
+                <li>Перейдите на <a href="https://openrouter.ai" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">openrouter.ai</a></li>
+                <li>Нажмите "Sign In" → войдите через Google (быстро и просто)</li>
+                <li>Перейдите в раздел "Keys" в настройках</li>
+                <li>Нажмите "Create Key" → скопируйте ключ</li>
+                <li>Бесплатные модели QWEN доступны без пополнения баланса</li>
+              </ol>
+              <p className="mt-2 text-xs opacity-70">💡 Бесплатные модели: qwen/qwen-2.5-72b-instruct, qwen/qwen-2.5-7b-instruct</p>
+            </div>
+
+            <div className={`p-4 rounded-lg border ${darkMode ? 'bg-green-900/20 border-green-700' : 'bg-green-50 border-green-200'}`}>
+              <h3 className="font-semibold mb-2">🚀 Вариант 2: Groq</h3>
+              <ol className="list-decimal list-inside space-y-1 opacity-90">
+                <li>Перейдите на <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">console.groq.com</a></li>
+                <li>Зарегистрируйтесь (можно через Google)</li>
+                <li>Перейдите в "API Keys" → создайте новый ключ</li>
+                <li>Скопируйте ключ</li>
+                <li>Бесплатный тариф включает QWEN модели</li>
+              </ol>
+              <p className="mt-2 text-xs opacity-70">💡 Бесплатные модели: qwen-2.5-72b, qwen-2.5-32b</p>
+            </div>
+
+            <div className={`p-4 rounded-lg border ${darkMode ? 'bg-purple-900/20 border-purple-700' : 'bg-purple-50 border-purple-200'}`}>
+              <h3 className="font-semibold mb-2">🎁 Вариант 3: DashScope (Alibaba Cloud)</h3>
+              <ol className="list-decimal list-inside space-y-1 opacity-90">
+                <li>Перейдите на <a href="https://dashscope.console.aliyun.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">dashscope.console.aliyun.com</a></li>
+                <li>Зарегистрируйте аккаунт Alibaba Cloud</li>
+                <li>Активируйте DashScope (дадут 70 млн токенов бесплатно)</li>
+                <li>Создайте API-ключ в разделе "API-KEY"</li>
+              </ol>
+              <p className="mt-2 text-xs opacity-70">💡 70 млн токенов бесплатно при регистрации (хватит на ~1000-2000 запросов)</p>
+            </div>
+
+            <div className={`p-4 rounded-lg border ${darkMode ? 'bg-yellow-900/20 border-yellow-700' : 'bg-yellow-50 border-yellow-200'}`}>
+              <h3 className="font-semibold mb-2">🤗 Вариант 4: HuggingFace</h3>
+              <ol className="list-decimal list-inside space-y-1 opacity-90">
+                <li>Перейдите на <a href="https://huggingface.co" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">huggingface.co</a></li>
+                <li>Зарегистрируйтесь</li>
+                <li>Перейдите в Settings → Access Tokens → создайте токен</li>
+                <li>Используйте модель Qwen/Qwen2.5-72B-Instruct</li>
+              </ol>
+              <p className="mt-2 text-xs opacity-70">💡 Бесплатный тариф есть, но медленнее и с ограничениями</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* API Configuration */}
+      <div className={`border rounded-lg p-5 ${cardClass}`}>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold flex items-center gap-2">
+            ⚙️ API-ключ для песочницы
+          </h2>
+          <button
+            onClick={() => setShowApiForm(!showApiForm)}
+            className="text-sm px-3 py-1 border rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          >
+            {showApiForm ? 'Скрыть' : 'Настроить'}
+          </button>
+        </div>
+
+        {apiConfig.apiKey && !showApiForm && (
           <div className={`p-3 rounded-lg border ${darkMode ? 'bg-green-900/20 border-green-700' : 'bg-green-50 border-green-200'}`}>
             <p className="text-sm">
-              ✓ Авторизация сохранена: <strong>{googleAuth.email}</strong>
-              {googleAuth.remember && <span className="ml-2 text-xs opacity-60">(запомнено)</span>}
+              ✓ API-ключ сохранён: <strong>{apiConfig.provider}</strong>
+              {apiConfig.remember && <span className="ml-2 text-xs opacity-60">(запомнено)</span>}
             </p>
             <button
-              onClick={clearGoogleAuth}
+              onClick={clearApiConfig}
               className="text-xs text-red-600 hover:underline mt-1"
             >
               Очистить сохранённые данные
@@ -759,61 +923,80 @@ function SandboxView({ cardClass, darkMode, sandboxPrompt, showSandbox, setShowS
           </div>
         )}
 
-        {showAuthForm && (
+        {showApiForm && (
           <div className="space-y-3">
             <div className={`p-3 rounded-lg text-xs ${darkMode ? 'bg-yellow-900/20 border border-yellow-700' : 'bg-yellow-50 border border-yellow-200'}`}>
-              <strong>⚠️ Важно:</strong> Данные сохраняются локально в вашем браузере (localStorage). 
-              Они не передаются на сервер. Используйте только на своём устройстве.
-              Для входа в QWEN откройте chat.qwen.ai и используйте эти данные.
+              <strong>⚠️ Важно:</strong> API-ключ сохраняется локально в вашем браузере (localStorage). 
+              Он не передаётся на наш сервер. Используйте только на своём устройстве.
             </div>
 
             <div>
-              <label className="text-sm font-medium block mb-1">Email Google:</label>
-              <input
-                type="email"
-                value={authEmail}
-                onChange={(e) => setAuthEmail(e.target.value)}
-                placeholder="your.email@gmail.com"
+              <label className="text-sm font-medium block mb-1">Провайдер:</label>
+              <select
+                value={provider}
+                onChange={(e) => setProvider(e.target.value as APIConfig['provider'])}
                 className={`w-full p-2 border rounded-lg text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
-              />
+              >
+                <option value="openrouter">OpenRouter (рекомендуется, есть бесплатные QWEN)</option>
+                <option value="groq">Groq (бесплатные QWEN, очень быстрый)</option>
+                <option value="dashscope">DashScope (Alibaba Cloud, 70 млн токенов бесплатно)</option>
+                <option value="huggingface">HuggingFace (бесплатный тариф)</option>
+              </select>
             </div>
 
             <div>
-              <label className="text-sm font-medium block mb-1">Пароль:</label>
+              <label className="text-sm font-medium block mb-1">API-ключ:</label>
               <input
                 type="password"
-                value={authPassword}
-                onChange={(e) => setAuthPassword(e.target.value)}
-                placeholder="••••••••"
-                className={`w-full p-2 border rounded-lg text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Вставьте ваш API-ключ"
+                className={`w-full p-2 border rounded-lg text-sm font-mono ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
               />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium block mb-1">Модель:</label>
+              <input
+                type="text"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                placeholder={provider === 'openrouter' ? 'qwen/qwen-2.5-72b-instruct' : 'qwen-2.5-72b'}
+                className={`w-full p-2 border rounded-lg text-sm font-mono ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+              />
+              <p className="text-xs opacity-60 mt-1">
+                {provider === 'openrouter' && 'Пример: qwen/qwen-2.5-72b-instruct, qwen/qwen-2.5-7b-instruct'}
+                {provider === 'groq' && 'Пример: qwen-2.5-72b, qwen-2.5-32b'}
+                {provider === 'dashscope' && 'Пример: qwen-turbo, qwen-plus, qwen-max'}
+                {provider === 'huggingface' && 'Пример: Qwen/Qwen2.5-72B-Instruct'}
+              </p>
             </div>
 
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input
                 type="checkbox"
-                checked={authRemember}
-                onChange={(e) => setAuthRemember(e.target.checked)}
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
                 className="rounded"
               />
-              Запомнить для дальнейшей авторизации
+              Запомнить API-ключ для дальнейшей работы
             </label>
 
             <div className="flex gap-2">
               <button
-                onClick={handleSaveAuth}
+                onClick={handleSaveConfig}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm transition-colors"
               >
                 💾 Сохранить
               </button>
-              {authStatus === 'saved' && (
+              {apiStatus === 'saved' && (
                 <span className="text-sm text-green-600 flex items-center">✓ Сохранено!</span>
               )}
             </div>
 
-            {googleAuth.email && (
+            {apiConfig.apiKey && (
               <button
-                onClick={clearGoogleAuth}
+                onClick={clearApiConfig}
                 className="text-xs text-red-600 hover:underline"
               >
                 Удалить сохранённые данные
@@ -821,104 +1004,95 @@ function SandboxView({ cardClass, darkMode, sandboxPrompt, showSandbox, setShowS
             )}
           </div>
         )}
+      </div>
 
-        {googleAuth.email && !showAuthForm && (
-          <div className="mt-3">
-            <a
-              href="https://accounts.google.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm px-3 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors inline-flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-              </svg>
-              Войти через Google
-            </a>
+      {/* Open chat.qwen.ai */}
+      <div className={`border rounded-lg p-5 ${cardClass}`}>
+        <h2 className="font-semibold mb-3 flex items-center gap-2">
+          🌐 Альтернатива: Открыть chat.qwen.ai напрямую
+        </h2>
+        <p className="text-sm opacity-80 mb-3">
+          Если не хотите настраивать API-ключ, можете использовать официальный веб-чат QWEN (полностью бесплатный, но без возможности встраивания в этот интерфейс).
+        </p>
+        <a
+          href="https://chat.qwen.ai"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm transition-colors inline-flex items-center gap-2"
+        >
+          🚀 Открыть chat.qwen.ai в новой вкладке ↗
+        </a>
+      </div>
+
+      {/* Chat Interface */}
+      <div className={`border rounded-lg p-5 ${cardClass}`}>
+        <h2 className="font-semibold mb-3 flex items-center gap-2">💬 Чат с QWEN через API</h2>
+        
+        {/* Chat History */}
+        {chatHistory.length > 0 && (
+          <div className={`mb-4 p-3 rounded-lg border max-h-96 overflow-y-auto ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+            {chatHistory.map((msg, i) => (
+              <div key={i} className={`mb-3 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
+                <div className={`inline-block max-w-full p-3 rounded-lg ${
+                  msg.role === 'user' 
+                    ? 'bg-blue-600 text-white' 
+                    : darkMode ? 'bg-gray-600 text-white' : 'bg-white border border-gray-200'
+                }`}>
+                  <div className="text-xs opacity-70 mb-1">{msg.role === 'user' ? '👤 Вы' : '🤖 QWEN'}</div>
+                  <div className="text-sm whitespace-pre-wrap break-words">{msg.content}</div>
+                </div>
+              </div>
+            ))}
+            {isLoading && (
+              <div className="text-left">
+                <div className={`inline-block p-3 rounded-lg ${darkMode ? 'bg-gray-600' : 'bg-white border border-gray-200'}`}>
+                  <div className="text-sm opacity-60">⏳ QWEN думает...</div>
+                </div>
+              </div>
+            )}
           </div>
         )}
-      </div>
 
-      {/* Info about limitations */}
-      <div className={`border rounded-lg p-4 ${darkMode ? 'bg-yellow-900/20 border-yellow-700' : 'bg-yellow-50 border-yellow-200'}`}>
-        <h3 className="font-semibold text-sm mb-2">⚠️ Как пользоваться песочницей</h3>
-        <ul className="text-sm space-y-1 opacity-80">
-          <li>• Напишите промпт в поле ниже и скопируйте его.</li>
-          <li>• Откройте QWEN (кнопка ниже) и вставьте промпт в чат.</li>
-          <li>• Если нужна авторизация — используйте сохранённые данные Google.</li>
-          <li>• Изучите ответ модели и оцените, насколько он полезен.</li>
-          <li>• Если ответ не устроил — улучшите промпт и попробуйте снова.</li>
-          <li>• Встроенный фрейм может не загрузиться из-за ограничений безопасности браузера. В этом случае используйте кнопку «Открыть в новой вкладке».</li>
-        </ul>
-      </div>
-
-      {/* Prompt input */}
-      <div className={`border rounded-lg p-5 ${cardClass}`}>
-        <h2 className="font-semibold mb-3">✍️ Ваш промпт</h2>
+        {/* Prompt Input */}
         <textarea
           value={localPrompt}
           onChange={(e) => setLocalPrompt(e.target.value)}
           placeholder="Напишите промпт для QWEN..."
           className={`w-full h-28 p-3 border rounded-lg text-sm resize-y font-mono leading-relaxed mb-3 ${darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 placeholder-gray-400'}`}
         />
+        
         <div className="flex gap-2 flex-wrap">
           <button
+            onClick={sendToAPI}
+            disabled={isLoading || !apiConfig.apiKey}
+            className={`px-4 py-2 rounded-lg text-sm transition-colors ${
+              isLoading || !apiConfig.apiKey
+                ? 'bg-gray-400 cursor-not-allowed text-gray-200'
+                : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}
+          >
+            {isLoading ? '⏳ Отправка...' : '🚀 Отправить в QWEN'}
+          </button>
+          <button
             onClick={handleCopy}
-            className={`px-4 py-2 rounded-lg text-sm transition-colors ${copied ? 'bg-green-600 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+            className={`px-4 py-2 rounded-lg text-sm transition-colors ${copied ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'}`}
           >
-            {copied ? '✓ Скопировано!' : '📋 Скопировать промпт'}
-          </button>
-          <a
-            href="https://chat.qwen.ai"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm transition-colors inline-flex items-center gap-1"
-          >
-            🚀 Открыть QWEN ↗
-          </a>
-          <button
-            onClick={() => setShowSandbox(!showSandbox)}
-            className={`px-4 py-2 border rounded-lg text-sm transition-colors ${darkMode ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-300 hover:bg-gray-100'}`}
-          >
-            {showSandbox ? '▴ Скрыть' : '▾ Показать'} фрейм QWEN
+            {copied ? '✓ Скопировано!' : '📋 Копировать'}
           </button>
           <button
-            onClick={() => setLocalPrompt('')}
-            className={`px-4 py-2 border rounded-lg text-sm transition-colors ${darkMode ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-300 hover:bg-gray-100'}`}
+            onClick={() => { setChatHistory([]); setLocalPrompt(''); }}
+            className={`px-4 py-2 rounded-lg text-sm transition-colors ${darkMode ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
           >
-            🗑️ Очистить
+            🗑️ Очистить чат
           </button>
         </div>
-      </div>
 
-      {/* QWEN iframe */}
-      {showSandbox && (
-        <div className={`border rounded-lg overflow-hidden ${cardClass}`}>
-          <div className={`p-3 border-b flex items-center justify-between ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-            <h2 className="font-semibold text-sm">QWEN Chat (встроенный)</h2>
-            <a
-              href="https://chat.qwen.ai"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-blue-600 hover:underline"
-            >
-              Если не загружается → откройте в новой вкладке ↗
-            </a>
+        {!apiConfig.apiKey && (
+          <div className={`mt-3 p-3 rounded-lg text-sm ${darkMode ? 'bg-yellow-900/20 border border-yellow-700' : 'bg-yellow-50 border border-yellow-200'}`}>
+            ⚠️ Сначала настройте API-ключ в разделе "API-ключ для песочницы" выше.
           </div>
-          <iframe
-            src="https://chat.qwen.ai"
-            className="w-full h-[600px] border-0"
-            title="QWEN Chat Sandbox"
-            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-          />
-          <div className={`p-3 border-t text-xs opacity-60 ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-            💡 Скопируйте промпт выше и вставьте в чат QWEN. Изучите ответ, затем вернитесь и улучшите промпт.
-          </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Quick templates */}
       <div className={`border rounded-lg p-5 ${cardClass}`}>
