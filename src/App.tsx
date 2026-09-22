@@ -139,6 +139,50 @@ export default function App() {
     ? exercises 
     : exercises.filter(e => e.category === selectedCategory);
 
+  // Клавиатурная навигация
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Не обрабатываем, если фокус в input/textarea
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+      
+      if (view === 'section' && currentSection) {
+        const currentIndex = sections.findIndex(s => s.id === currentSection);
+        if (e.key === 'ArrowLeft' && currentIndex > 0) {
+          setCurrentSection(sections[currentIndex - 1].id);
+          setUserPrompt('');
+          setFeedback(null);
+          window.scrollTo(0, 0);
+        } else if (e.key === 'ArrowRight' && currentIndex < sections.length - 1) {
+          setCurrentSection(sections[currentIndex + 1].id);
+          setUserPrompt('');
+          setFeedback(null);
+          window.scrollTo(0, 0);
+        }
+      } else if (view === 'exercise-detail' && currentExercise) {
+        const currentEx = exercises.find(ex => ex.id === currentExercise);
+        if (currentEx) {
+          const categoryExercises = exercises.filter(ex => ex.category === currentEx.category);
+          const exIndex = categoryExercises.findIndex(ex => ex.id === currentExercise);
+          if (e.key === 'ArrowLeft' && exIndex > 0) {
+            setCurrentExercise(categoryExercises[exIndex - 1].id);
+            setUserPrompt('');
+            setFeedback(null);
+            window.scrollTo(0, 0);
+          } else if (e.key === 'ArrowRight' && exIndex < categoryExercises.length - 1) {
+            setCurrentExercise(categoryExercises[exIndex + 1].id);
+            setUserPrompt('');
+            setFeedback(null);
+            window.scrollTo(0, 0);
+          }
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [view, currentSection, currentExercise]);
+
   const themeClass = darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900';
   const cardClass = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200';
   const goodClass = darkMode ? 'bg-green-900/30 border-green-700' : 'bg-green-50 border-green-200';
@@ -164,6 +208,106 @@ export default function App() {
               <button onClick={() => setView('home')} className={`text-xs sm:text-sm px-2 py-1 rounded transition-colors ${view === 'home' || view === 'section' ? (darkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-700') : 'hover:opacity-70'}`}>📖 Разделы</button>
               <button onClick={() => setView('exercises')} className={`text-xs sm:text-sm px-2 py-1 rounded transition-colors ${view === 'exercises' || view === 'exercise-detail' ? (darkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-700') : 'hover:opacity-70'}`}>🎯 Практика</button>
               <button onClick={() => { setView('sandbox'); setShowSandbox(true); }} className={`text-xs sm:text-sm px-2 py-1 rounded transition-colors ${view === 'sandbox' ? (darkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-700') : 'hover:opacity-70'}`}>🧪 Песочница</button>
+              
+              {/* Быстрая навигация между разделами */}
+              {view === 'section' && currentSection && (() => {
+                const currentIndex = sections.findIndex(s => s.id === currentSection);
+                return (
+                  <div className="hidden sm:flex items-center gap-1 ml-2 pl-2 border-l border-gray-300 dark:border-gray-600">
+                    <button 
+                      onClick={() => {
+                        if (currentIndex > 0) {
+                          setCurrentSection(sections[currentIndex - 1].id);
+                          setUserPrompt('');
+                          setFeedback(null);
+                          window.scrollTo(0, 0);
+                        }
+                      }}
+                      disabled={currentIndex === 0}
+                      className={`px-2 py-1 rounded text-sm transition-colors ${
+                        currentIndex === 0 
+                          ? 'opacity-30 cursor-not-allowed' 
+                          : 'hover:bg-gray-200 dark:hover:bg-gray-700'
+                      }`}
+                      title={`← ${currentIndex > 0 ? sections[currentIndex - 1].shortTitle : 'Нет предыдущего'}`}
+                    >
+                      ←
+                    </button>
+                    <span className="text-xs opacity-60">{currentIndex + 1}/{sections.length}</span>
+                    <button 
+                      onClick={() => {
+                        if (currentIndex < sections.length - 1) {
+                          setCurrentSection(sections[currentIndex + 1].id);
+                          setUserPrompt('');
+                          setFeedback(null);
+                          window.scrollTo(0, 0);
+                        }
+                      }}
+                      disabled={currentIndex === sections.length - 1}
+                      className={`px-2 py-1 rounded text-sm transition-colors ${
+                        currentIndex === sections.length - 1 
+                          ? 'opacity-30 cursor-not-allowed' 
+                          : 'hover:bg-gray-200 dark:hover:bg-gray-700'
+                      }`}
+                      title={`→ ${currentIndex < sections.length - 1 ? sections[currentIndex + 1].shortTitle : 'Нет следующего'}`}
+                    >
+                      →
+                    </button>
+                  </div>
+                );
+              })()}
+              
+              {/* Быстрая навигация между упражнениями */}
+              {view === 'exercise-detail' && currentExercise && (() => {
+                const currentEx = exercises.find(e => e.id === currentExercise);
+                if (!currentEx) return null;
+                const categoryExercises = exercises.filter(e => e.category === currentEx.category);
+                const exIndex = categoryExercises.findIndex(e => e.id === currentExercise);
+                return (
+                  <div className="hidden sm:flex items-center gap-1 ml-2 pl-2 border-l border-gray-300 dark:border-gray-600">
+                    <button 
+                      onClick={() => {
+                        if (exIndex > 0) {
+                          setCurrentExercise(categoryExercises[exIndex - 1].id);
+                          setUserPrompt('');
+                          setFeedback(null);
+                          window.scrollTo(0, 0);
+                        }
+                      }}
+                      disabled={exIndex === 0}
+                      className={`px-2 py-1 rounded text-sm transition-colors ${
+                        exIndex === 0 
+                          ? 'opacity-30 cursor-not-allowed' 
+                          : 'hover:bg-gray-200 dark:hover:bg-gray-700'
+                      }`}
+                      title={exIndex > 0 ? `← ${categoryExercises[exIndex - 1].title}` : 'Нет предыдущего'}
+                    >
+                      ←
+                    </button>
+                    <span className="text-xs opacity-60">{exIndex + 1}/{categoryExercises.length}</span>
+                    <button 
+                      onClick={() => {
+                        if (exIndex < categoryExercises.length - 1) {
+                          setCurrentExercise(categoryExercises[exIndex + 1].id);
+                          setUserPrompt('');
+                          setFeedback(null);
+                          window.scrollTo(0, 0);
+                        }
+                      }}
+                      disabled={exIndex === categoryExercises.length - 1}
+                      className={`px-2 py-1 rounded text-sm transition-colors ${
+                        exIndex === categoryExercises.length - 1 
+                          ? 'opacity-30 cursor-not-allowed' 
+                          : 'hover:bg-gray-200 dark:hover:bg-gray-700'
+                      }`}
+                      title={exIndex < categoryExercises.length - 1 ? `→ ${categoryExercises[exIndex + 1].title}` : 'Нет следующего'}
+                    >
+                      →
+                    </button>
+                  </div>
+                );
+              })()}
+              
               <button onClick={() => setDarkMode(!darkMode)} className="text-sm px-2 py-1 rounded hover:opacity-70 transition-opacity" title="Переключить тему">
                 {darkMode ? '☀️' : '🌙'}
               </button>
@@ -239,6 +383,7 @@ export default function App() {
             <div className="mb-6">
               <h1 className="text-2xl font-bold mb-2">Поясняющие разделы об ИИ</h1>
               <p className="opacity-70 text-sm">Изучайте разделы в любом порядке. Каждый раздел содержит объяснение, примеры и практическое задание.</p>
+              <p className="text-xs opacity-50 mt-1">💡 Используйте клавиши ← → для быстрой навигации между разделами</p>
               <div className="mt-3 flex items-center gap-3 flex-wrap">
                 <div className={`text-sm px-3 py-1.5 rounded-lg ${darkMode ? 'bg-gray-800' : 'bg-white border border-gray-200'}`}>
                   📊 Прогресс: {completedSections.size}/{sections.length} разделов
@@ -282,42 +427,65 @@ export default function App() {
         )}
 
         {/* SECTION VIEW */}
-        {view === 'section' && currentSection && (
-          <SectionContent 
-            section={sections.find(s => s.id === currentSection)!}
-            cardClass={cardClass}
-            goodClass={goodClass}
-            badClass={badClass}
-            infoClass={infoClass}
-            darkMode={darkMode}
-            onComplete={() => markSectionComplete(currentSection)}
-            isCompleted={completedSections.has(currentSection)}
-            onOpenSandbox={openInSandbox}
-            onBack={() => setView('home')}
-          />
-        )}
+        {view === 'section' && currentSection && (() => {
+          const currentIndex = sections.findIndex(s => s.id === currentSection);
+          const prevSection = currentIndex > 0 ? sections[currentIndex - 1] : null;
+          const nextSection = currentIndex < sections.length - 1 ? sections[currentIndex + 1] : null;
+          return (
+            <SectionContent 
+              section={sections.find(s => s.id === currentSection)!}
+              cardClass={cardClass}
+              goodClass={goodClass}
+              badClass={badClass}
+              infoClass={infoClass}
+              darkMode={darkMode}
+              onComplete={() => markSectionComplete(currentSection)}
+              isCompleted={completedSections.has(currentSection)}
+              onOpenSandbox={openInSandbox}
+              onBack={() => setView('home')}
+              prevSection={prevSection}
+              nextSection={nextSection}
+              onNavigate={(id: string) => { setCurrentSection(id); setUserPrompt(''); setFeedback(null); window.scrollTo(0, 0); }}
+              sectionIndex={currentIndex}
+              totalSections={sections.length}
+              completedSections={completedSections}
+            />
+          );
+        })()}
 
         {/* EXERCISES VIEW */}
         {view === 'exercises' && (
           <div>
             <h1 className="text-2xl font-bold mb-2">Практические задания</h1>
             <p className="opacity-70 text-sm mb-4">Выберите область и тренируйтесь на реальных кейсах. Для каждого задания есть слабый и сильный промпт — сравните и попробуйте свой вариант.</p>
+            <p className="text-xs opacity-50 mb-4">💡 Используйте клавиши ← → для быстрой навигации между заданиями</p>
             
             {/* Category filter */}
             <div className="flex flex-wrap gap-2 mb-6">
-              {categories.map(cat => (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedCategory(cat.id)}
-                  className={`px-3 py-1.5 rounded-full text-sm border transition-all ${
-                    selectedCategory === cat.id 
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm' 
-                      : `${darkMode ? 'border-gray-600 hover:border-gray-400' : 'border-gray-300 hover:border-gray-400'}`
-                  }`}
-                >
-                  {cat.icon} {cat.name}
-                </button>
-              ))}
+              {categories.map(cat => {
+                const catExercises = cat.id === 'all' ? exercises : exercises.filter(e => e.category === cat.id);
+                const catCompleted = catExercises.filter(e => completedExercises.has(e.id)).length;
+                const catProgress = catExercises.length > 0 ? Math.round((catCompleted / catExercises.length) * 100) : 0;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={`px-3 py-1.5 rounded-full text-sm border transition-all ${
+                      selectedCategory === cat.id 
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm' 
+                        : `${darkMode ? 'border-gray-600 hover:border-gray-400' : 'border-gray-300 hover:border-gray-400'}`
+                    }`}
+                  >
+                    {cat.icon} {cat.name}
+                    {cat.id !== 'all' && catExercises.length > 0 && (
+                      <span className="ml-1 text-xs opacity-70">({catCompleted}/{catExercises.length})</span>
+                    )}
+                    {selectedCategory === cat.id && catProgress > 0 && (
+                      <span className="ml-1 text-xs">• {catProgress}%</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
             <div className="grid gap-3">
@@ -348,25 +516,38 @@ export default function App() {
         )}
 
         {/* EXERCISE DETAIL VIEW */}
-        {view === 'exercise-detail' && currentExercise && (
-          <ExerciseDetail
-            exercise={exercises.find(e => e.id === currentExercise)!}
-            cardClass={cardClass}
-            goodClass={goodClass}
-            badClass={badClass}
-            infoClass={infoClass}
-            darkMode={darkMode}
-            userPrompt={userPrompt}
-            setUserPrompt={setUserPrompt}
-            feedback={feedback}
-            setFeedback={setFeedback}
-            analyzePrompt={analyzePrompt}
-            onComplete={() => markExerciseComplete(currentExercise)}
-            isCompleted={completedExercises.has(currentExercise)}
-            onOpenSandbox={openInSandbox}
-            onBack={() => setView('exercises')}
-          />
-        )}
+        {view === 'exercise-detail' && currentExercise && (() => {
+          const currentEx = exercises.find(e => e.id === currentExercise)!;
+          const categoryExercises = exercises.filter(e => e.category === currentEx.category);
+          const exIndex = categoryExercises.findIndex(e => e.id === currentExercise);
+          const prevExercise = exIndex > 0 ? categoryExercises[exIndex - 1] : null;
+          const nextExercise = exIndex < categoryExercises.length - 1 ? categoryExercises[exIndex + 1] : null;
+          return (
+            <ExerciseDetail
+              exercise={currentEx}
+              cardClass={cardClass}
+              goodClass={goodClass}
+              badClass={badClass}
+              infoClass={infoClass}
+              darkMode={darkMode}
+              userPrompt={userPrompt}
+              setUserPrompt={setUserPrompt}
+              feedback={feedback}
+              setFeedback={setFeedback}
+              analyzePrompt={analyzePrompt}
+              onComplete={() => markExerciseComplete(currentExercise)}
+              isCompleted={completedExercises.has(currentExercise)}
+              onOpenSandbox={openInSandbox}
+              onBack={() => setView('exercises')}
+              prevExercise={prevExercise}
+              nextExercise={nextExercise}
+              onNavigate={(id: string) => { setCurrentExercise(id); setUserPrompt(''); setFeedback(null); window.scrollTo(0, 0); }}
+              exerciseIndex={exIndex}
+              totalExercises={categoryExercises.length}
+              completedExercises={completedExercises}
+            />
+          );
+        })()}
 
         {/* SANDBOX VIEW */}
         {view === 'sandbox' && (
@@ -400,7 +581,7 @@ export default function App() {
 }
 
 // ==================== SECTION CONTENT ====================
-function SectionContent({ section: sec, cardClass, goodClass, badClass, infoClass, darkMode, onComplete, isCompleted, onOpenSandbox, onBack }: {
+function SectionContent({ section: sec, cardClass, goodClass, badClass, infoClass, darkMode, onComplete, isCompleted, onOpenSandbox, onBack, prevSection, nextSection, onNavigate, sectionIndex, totalSections, completedSections }: {
   section: typeof sections[0];
   cardClass: string;
   goodClass: string;
@@ -411,6 +592,12 @@ function SectionContent({ section: sec, cardClass, goodClass, badClass, infoClas
   isCompleted: boolean;
   onOpenSandbox: (prompt: string) => void;
   onBack: () => void;
+  prevSection: typeof sections[0] | null;
+  nextSection: typeof sections[0] | null;
+  onNavigate: (id: string) => void;
+  sectionIndex: number;
+  totalSections: number;
+  completedSections: Set<string>;
 }) {
   const renderContent = (text: string) => {
     return text.split('\n').map((line, i) => {
@@ -503,41 +690,141 @@ function SectionContent({ section: sec, cardClass, goodClass, badClass, infoClas
         <p className="text-sm font-medium">{sec.takeaway}</p>
       </div>
 
+      {/* Рекомендация перехода */}
+      {nextSection && (
+        <div className={`border rounded-lg p-5 ${darkMode ? 'border-blue-700 bg-blue-900/10' : 'border-blue-200 bg-blue-50'}`}>
+          <h2 className="font-semibold text-base mb-2 flex items-center gap-2">
+            <span>🎯</span> Что дальше?
+          </h2>
+          <p className="text-sm mb-3">
+            Отлично! Вы изучили раздел «{sec.title}». Готовы перейти к следующему?
+          </p>
+          <button
+            onClick={() => onNavigate(nextSection.id)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm transition-colors"
+          >
+            Перейти к следующему разделу: {nextSection.icon} {nextSection.shortTitle} →
+          </button>
+        </div>
+      )}
+
+      {!nextSection && (
+        <div className={`border rounded-lg p-5 ${darkMode ? 'border-green-700 bg-green-900/10' : 'border-green-200 bg-green-50'}`}>
+          <h2 className="font-semibold text-base mb-2 flex items-center gap-2">
+            <span>🎉</span> Поздравляем!
+          </h2>
+          <p className="text-sm mb-3">
+            Вы изучили все теоретические разделы! Теперь переходите к практическим заданиям.
+          </p>
+          <button
+            onClick={() => { onBack(); setTimeout(() => { const el = document.querySelector('[data-exercises]'); if (el) el.scrollIntoView(); }, 100); }}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm transition-colors"
+          >
+            🎯 Перейти к практическим заданиям →
+          </button>
+        </div>
+      )}
+
       {/* Action */}
-      <div className={`flex items-center justify-between pt-4 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-        <button
-          onClick={onBack}
-          className={`px-4 py-2 rounded-lg border text-sm transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}
-        >
-          ← К разделам
-        </button>
-        
-        <div className="flex items-center gap-2">
-          {!isCompleted ? (
-            <button
-              onClick={onComplete}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm transition-colors"
-            >
-              ✓ Отметить как изученное
-            </button>
-          ) : (
-            <span className="text-green-600 font-medium text-sm flex items-center gap-1">✓ Изучено</span>
-          )}
+      <div className={`pt-4 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+          <button
+            onClick={onBack}
+            className={`px-4 py-2 rounded-lg border text-sm transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}
+          >
+            ← К списку разделов
+          </button>
+          
+          <div className="flex items-center gap-2">
+            {!isCompleted ? (
+              <button
+                onClick={onComplete}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm transition-colors"
+              >
+                ✓ Отметить как изученное
+              </button>
+            ) : (
+              <span className="text-green-600 font-medium text-sm flex items-center gap-1">✓ Изучено</span>
+            )}
+          </div>
+
+          <button
+            onClick={() => onOpenSandbox('')}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm transition-colors"
+          >
+            🧪 В песочницу →
+          </button>
         </div>
 
-        <button
-          onClick={() => onOpenSandbox('')}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm transition-colors"
-        >
-          🧪 В песочницу →
-        </button>
+        {/* Навигация между разделами */}
+        <div className={`mt-6 p-4 rounded-lg border ${darkMode ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-gray-50'}`}>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs opacity-60">Раздел {sectionIndex + 1} из {totalSections}</span>
+            <div className="flex gap-1">
+              {Array.from({ length: totalSections }).map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => onNavigate(sections[i].id)}
+                  className={`w-2 h-2 rounded-full transition-all ${
+                    i === sectionIndex 
+                      ? 'bg-blue-600 w-6' 
+                      : completedSections.has(sections[i].id)
+                        ? 'bg-green-500'
+                        : darkMode ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-300 hover:bg-gray-400'
+                  }`}
+                  title={sections[i].shortTitle}
+                />
+              ))}
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Предыдущий раздел */}
+            {prevSection ? (
+              <button
+                onClick={() => onNavigate(prevSection.id)}
+                className={`flex items-start gap-3 p-3 rounded-lg border text-left transition-all hover:shadow-md ${darkMode ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-200 hover:bg-white'}`}
+              >
+                <div className="text-2xl flex-shrink-0">{prevSection.icon}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs opacity-60 mb-0.5">← Предыдущий раздел</div>
+                  <div className="text-sm font-medium truncate">{prevSection.title}</div>
+                </div>
+              </button>
+            ) : (
+              <div className={`p-3 rounded-lg border opacity-40 ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                <div className="text-xs opacity-60 mb-0.5">← Предыдущий раздел</div>
+                <div className="text-sm">Это первый раздел</div>
+              </div>
+            )}
+            
+            {/* Следующий раздел */}
+            {nextSection ? (
+              <button
+                onClick={() => onNavigate(nextSection.id)}
+                className={`flex items-start gap-3 p-3 rounded-lg border text-left transition-all hover:shadow-md ${darkMode ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-200 hover:bg-white'}`}
+              >
+                <div className="text-2xl flex-shrink-0">{nextSection.icon}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs opacity-60 mb-0.5">Следующий раздел →</div>
+                  <div className="text-sm font-medium truncate">{nextSection.title}</div>
+                </div>
+              </button>
+            ) : (
+              <div className={`p-3 rounded-lg border opacity-40 ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                <div className="text-xs opacity-60 mb-0.5">Следующий раздел →</div>
+                <div className="text-sm">Это последний раздел</div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
 // ==================== EXERCISE DETAIL ====================
-function ExerciseDetail({ exercise, cardClass, goodClass, badClass, infoClass, darkMode, userPrompt, setUserPrompt, feedback, setFeedback, analyzePrompt, onComplete, isCompleted, onOpenSandbox, onBack }: {
+function ExerciseDetail({ exercise, cardClass, goodClass, badClass, infoClass, darkMode, userPrompt, setUserPrompt, feedback, setFeedback, analyzePrompt, onComplete, isCompleted, onOpenSandbox, onBack, prevExercise, nextExercise, onNavigate, exerciseIndex, totalExercises, completedExercises }: {
   exercise: typeof exercises[0];
   cardClass: string;
   goodClass: string;
@@ -553,6 +840,12 @@ function ExerciseDetail({ exercise, cardClass, goodClass, badClass, infoClass, d
   isCompleted: boolean;
   onOpenSandbox: (prompt: string) => void;
   onBack: () => void;
+  prevExercise: typeof exercises[0] | null;
+  nextExercise: typeof exercises[0] | null;
+  onNavigate: (id: string) => void;
+  exerciseIndex: number;
+  totalExercises: number;
+  completedExercises: Set<string>;
 }) {
   const handleAnalyze = () => {
     if (!userPrompt.trim()) {
@@ -679,6 +972,87 @@ function ExerciseDetail({ exercise, cardClass, goodClass, badClass, infoClass, d
             </div>
           </div>
         )}
+      </div>
+
+      {/* Навигация между упражнениями */}
+      <div className={`pt-4 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+        <div className={`mt-4 p-4 rounded-lg border ${darkMode ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-gray-50'}`}>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs opacity-60">Задание {exerciseIndex + 1} из {totalExercises} в категории «{exercise.category}»</span>
+            <div className="flex gap-1">
+              {Array.from({ length: totalExercises }).map((_, i) => {
+                const ex = exercises.filter(e => e.category === exercise.category)[i];
+                return (
+                  <button
+                    key={i}
+                    onClick={() => onNavigate(ex.id)}
+                    className={`w-2 h-2 rounded-full transition-all ${
+                      i === exerciseIndex 
+                        ? 'bg-blue-600 w-6' 
+                        : completedExercises.has(ex.id)
+                          ? 'bg-green-500'
+                          : darkMode ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-300 hover:bg-gray-400'
+                    }`}
+                    title={ex.title}
+                  />
+                );
+              })}
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Предыдущее задание */}
+            {prevExercise ? (
+              <button
+                onClick={() => onNavigate(prevExercise.id)}
+                className={`flex items-start gap-3 p-3 rounded-lg border text-left transition-all hover:shadow-md ${darkMode ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-200 hover:bg-white'}`}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs opacity-60 mb-0.5">← Предыдущее задание</div>
+                  <div className="text-sm font-medium truncate">{prevExercise.title}</div>
+                </div>
+              </button>
+            ) : (
+              <div className={`p-3 rounded-lg border opacity-40 ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                <div className="text-xs opacity-60 mb-0.5">← Предыдущее задание</div>
+                <div className="text-sm">Это первое задание в категории</div>
+              </div>
+            )}
+            
+            {/* Следующее задание */}
+            {nextExercise ? (
+              <button
+                onClick={() => onNavigate(nextExercise.id)}
+                className={`flex items-start gap-3 p-3 rounded-lg border text-left transition-all hover:shadow-md ${darkMode ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-200 hover:bg-white'}`}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs opacity-60 mb-0.5">Следующее задание →</div>
+                  <div className="text-sm font-medium truncate">{nextExercise.title}</div>
+                </div>
+              </button>
+            ) : (
+              <div className={`p-3 rounded-lg border opacity-40 ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                <div className="text-xs opacity-60 mb-0.5">Следующее задание →</div>
+                <div className="text-sm">Это последнее задание в категории</div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between mt-4 pt-3 border-t border-dashed" style={{ borderColor: darkMode ? '#374151' : '#e5e7eb' }}>
+            <button
+              onClick={onBack}
+              className={`px-4 py-2 rounded-lg border text-sm transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}
+            >
+              ← К списку заданий
+            </button>
+            <button
+              onClick={() => onOpenSandbox('')}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm transition-colors"
+            >
+              🧪 В песочницу →
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
