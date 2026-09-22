@@ -1,14 +1,20 @@
 import { useState, useCallback, useEffect } from 'react';
-import { modules } from './data/modules';
+import { sections } from './data/sections';
 import { exercises, categories } from './data/exercises';
 
-type View = 'welcome' | 'home' | 'module' | 'exercises' | 'sandbox' | 'exercise-detail';
+type View = 'welcome' | 'home' | 'section' | 'exercises' | 'sandbox' | 'exercise-detail';
+
+interface GoogleAuth {
+  email: string;
+  password: string;
+  remember: boolean;
+}
 
 export default function App() {
   const [view, setView] = useState<View>('welcome');
-  const [currentModule, setCurrentModule] = useState(0);
+  const [currentSection, setCurrentSection] = useState<string | null>(null);
   const [currentExercise, setCurrentExercise] = useState<string | null>(null);
-  const [completedModules, setCompletedModules] = useState<Set<string>>(new Set());
+  const [completedSections, setCompletedSections] = useState<Set<string>>(new Set());
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [darkMode, setDarkMode] = useState(false);
@@ -16,13 +22,28 @@ export default function App() {
   const [showSandbox, setShowSandbox] = useState(false);
   const [userPrompt, setUserPrompt] = useState('');
   const [feedback, setFeedback] = useState<string | null>(null);
+  
+  // Google auth state
+  const [googleAuth, setGoogleAuth] = useState<GoogleAuth>(() => {
+    const saved = localStorage.getItem('qwen_google_auth');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return { email: '', password: '', remember: false };
+      }
+    }
+    return { email: '', password: '', remember: false };
+  });
+  const [showAuthForm, setShowAuthForm] = useState(false);
+  const [authStatus, setAuthStatus] = useState<'idle' | 'saved' | 'error'>('idle');
 
   const totalProgress = Math.round(
-    ((completedModules.size + completedExercises.size) / (modules.length + exercises.length)) * 100
+    ((completedSections.size + completedExercises.size) / (sections.length + exercises.length)) * 100
   );
 
-  const markModuleComplete = useCallback((id: string) => {
-    setCompletedModules(prev => new Set(prev).add(id));
+  const markSectionComplete = useCallback((id: string) => {
+    setCompletedSections(prev => new Set(prev).add(id));
   }, []);
 
   const markExerciseComplete = useCallback((id: string) => {
@@ -33,6 +54,23 @@ export default function App() {
     setSandboxPrompt(prompt);
     setShowSandbox(true);
     setView('sandbox');
+  }, []);
+
+  const saveGoogleAuth = useCallback((auth: GoogleAuth) => {
+    if (auth.remember) {
+      localStorage.setItem('qwen_google_auth', JSON.stringify(auth));
+    } else {
+      localStorage.removeItem('qwen_google_auth');
+    }
+    setGoogleAuth(auth);
+    setAuthStatus('saved');
+    setTimeout(() => setAuthStatus('idle'), 2000);
+  }, []);
+
+  const clearGoogleAuth = useCallback(() => {
+    localStorage.removeItem('qwen_google_auth');
+    setGoogleAuth({ email: '', password: '', remember: false });
+    setAuthStatus('idle');
   }, []);
 
   const analyzePrompt = useCallback((_prompt: string, goodPrompt: string) => {
@@ -80,7 +118,6 @@ export default function App() {
       checks.push('💡 Можно добавить ограничения: объём, стиль, что исключить.');
     }
 
-    // Similarity check
     const words1 = new Set(_prompt.toLowerCase().split(/\s+/).filter(w => w.length > 2));
     const words2 = new Set(goodPrompt.toLowerCase().split(/\s+/).filter(w => w.length > 2));
     const intersection = [...words1].filter(w => words2.has(w));
@@ -123,7 +160,7 @@ export default function App() {
               <span className="text-xs opacity-50 hidden sm:inline">QWEN</span>
             </div>
             <nav className="flex items-center gap-1 sm:gap-3">
-              <button onClick={() => setView('home')} className={`text-xs sm:text-sm px-2 py-1 rounded transition-colors ${view === 'home' || view === 'module' ? (darkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-700') : 'hover:opacity-70'}`}>📖 Модули</button>
+              <button onClick={() => setView('home')} className={`text-xs sm:text-sm px-2 py-1 rounded transition-colors ${view === 'home' || view === 'section' ? (darkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-700') : 'hover:opacity-70'}`}>📖 Разделы</button>
               <button onClick={() => setView('exercises')} className={`text-xs sm:text-sm px-2 py-1 rounded transition-colors ${view === 'exercises' || view === 'exercise-detail' ? (darkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-700') : 'hover:opacity-70'}`}>🎯 Практика</button>
               <button onClick={() => { setView('sandbox'); setShowSandbox(true); }} className={`text-xs sm:text-sm px-2 py-1 rounded transition-colors ${view === 'sandbox' ? (darkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-700') : 'hover:opacity-70'}`}>🧪 Песочница</button>
               <button onClick={() => setDarkMode(!darkMode)} className="text-sm px-2 py-1 rounded hover:opacity-70 transition-opacity" title="Переключить тему">
@@ -149,16 +186,16 @@ export default function App() {
               <div className="text-5xl mb-6">🎓</div>
               <h1 className="text-3xl sm:text-4xl font-bold mb-4">Тренажёр промптинга</h1>
               <p className="text-lg opacity-70 mb-2">Научитесь эффективно общаться с ИИ-моделью QWEN</p>
-              <p className="text-sm opacity-50 mb-8">Пошаговое обучение • Практические задания • Встроенная песочница</p>
+              <p className="text-sm opacity-50 mb-8">Поясняющие разделы • Практические задания • Встроенная песочница</p>
               
               <div className={`border rounded-xl p-6 mb-8 text-left ${cardClass}`}>
-                <h2 className="font-semibold mb-3">Что вы научитесь делать:</h2>
+                <h2 className="font-semibold mb-3">Что вы узнаете:</h2>
                 <ul className="space-y-2 text-sm">
-                  <li className="flex items-start gap-2"><span>✅</span> Писать чёткие и конкретные промпты</li>
+                  <li className="flex items-start gap-2"><span>✅</span> Что такое ИИ и как он работает</li>
+                  <li className="flex items-start gap-2"><span>✅</span> Как писать чёткие и конкретные промпты</li>
                   <li className="flex items-start gap-2"><span>✅</span> Получать от ИИ именно те ответы, которые нужны</li>
                   <li className="flex items-start gap-2"><span>✅</span> Решать бытовые, учебные и рабочие задачи с помощью ИИ</li>
                   <li className="flex items-start gap-2"><span>✅</span> Отличать слабые промпты от сильных</li>
-                  <li className="flex items-start gap-2"><span>✅</span> Использовать QWEN для повседневных задач</li>
                 </ul>
               </div>
 
@@ -167,8 +204,8 @@ export default function App() {
                 <div className="grid sm:grid-cols-3 gap-4 text-sm">
                   <div className="text-center">
                     <div className="text-2xl mb-1">📖</div>
-                    <div className="font-medium">6 модулей</div>
-                    <div className="opacity-60">Теория + примеры</div>
+                    <div className="font-medium">6 разделов</div>
+                    <div className="opacity-60">Пояснения об ИИ</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl mb-1">🎯</div>
@@ -195,15 +232,15 @@ export default function App() {
           </div>
         )}
 
-        {/* HOME VIEW - Modules list */}
+        {/* HOME VIEW - Sections list */}
         {view === 'home' && (
           <div>
             <div className="mb-6">
-              <h1 className="text-2xl font-bold mb-2">Учебные модули</h1>
-              <p className="opacity-70 text-sm">Пройдите модули последовательно — от основ к продвинутым техникам. Каждый модуль содержит теорию, примеры и задание.</p>
+              <h1 className="text-2xl font-bold mb-2">Поясняющие разделы об ИИ</h1>
+              <p className="opacity-70 text-sm">Изучайте разделы в любом порядке. Каждый раздел содержит объяснение, примеры и практическое задание.</p>
               <div className="mt-3 flex items-center gap-3 flex-wrap">
                 <div className={`text-sm px-3 py-1.5 rounded-lg ${darkMode ? 'bg-gray-800' : 'bg-white border border-gray-200'}`}>
-                  📊 Прогресс: {completedModules.size}/{modules.length} модулей
+                  📊 Прогресс: {completedSections.size}/{sections.length} разделов
                 </div>
                 <div className={`text-sm px-3 py-1.5 rounded-lg ${darkMode ? 'bg-gray-800' : 'bg-white border border-gray-200'}`}>
                   🎯 Заданий выполнено: {completedExercises.size}/{exercises.length}
@@ -211,26 +248,22 @@ export default function App() {
               </div>
             </div>
 
-            <div className="grid gap-3">
-              {modules.map((mod, idx) => (
-                <div key={mod.id} className={`border rounded-lg p-4 ${cardClass} transition-all hover:shadow-md ${completedModules.has(mod.id) ? 'ring-2 ring-green-400/50' : ''}`}>
-                  <div className="flex items-start justify-between gap-4">
+            <div className="grid sm:grid-cols-2 gap-3">
+              {sections.map((sec) => (
+                <div key={sec.id} className={`border rounded-lg p-4 ${cardClass} transition-all hover:shadow-md cursor-pointer ${completedSections.has(sec.id) ? 'ring-2 ring-green-400/50' : ''}`}
+                  onClick={() => { setCurrentSection(sec.id); setUserPrompt(''); setFeedback(null); setView('section'); }}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="text-3xl flex-shrink-0">{sec.icon}</div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className={`text-xs font-mono px-1.5 py-0.5 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>{idx + 1}</span>
-                        {completedModules.has(mod.id) && (
-                          <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full dark:bg-green-900/30 dark:text-green-400">✓ Пройден</span>
+                        <h3 className="font-semibold">{sec.title}</h3>
+                        {completedSections.has(sec.id) && (
+                          <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full dark:bg-green-900/30 dark:text-green-400">✓ Изучено</span>
                         )}
                       </div>
-                      <h3 className="font-semibold mb-1">{mod.title}</h3>
-                      <p className="text-sm opacity-60">{mod.description}</p>
+                      <p className="text-sm opacity-60">{sec.description}</p>
                     </div>
-                    <button
-                      onClick={() => { setCurrentModule(idx); setUserPrompt(''); setFeedback(null); setView('module'); }}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm whitespace-nowrap transition-colors flex-shrink-0"
-                    >
-                      Открыть →
-                    </button>
                   </div>
                 </div>
               ))}
@@ -247,39 +280,20 @@ export default function App() {
           </div>
         )}
 
-        {/* MODULE VIEW */}
-        {view === 'module' && (
-          <div>
-            <button onClick={() => setView('home')} className="text-sm mb-4 hover:underline flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity">
-              ← Назад к списку модулей
-            </button>
-            
-            <ModuleContent 
-              module={modules[currentModule]} 
-              cardClass={cardClass}
-              goodClass={goodClass}
-              badClass={badClass}
-              infoClass={infoClass}
-              darkMode={darkMode}
-              onComplete={() => markModuleComplete(modules[currentModule].id)}
-              isCompleted={completedModules.has(modules[currentModule].id)}
-              onOpenSandbox={openInSandbox}
-              onNext={() => {
-                setUserPrompt(''); setFeedback(null);
-                if (currentModule < modules.length - 1) {
-                  setCurrentModule(currentModule + 1);
-                } else {
-                  setView('home');
-                }
-              }}
-              onPrev={() => {
-                setUserPrompt(''); setFeedback(null);
-                if (currentModule > 0) setCurrentModule(currentModule - 1);
-              }}
-              isFirst={currentModule === 0}
-              isLast={currentModule === modules.length - 1}
-            />
-          </div>
+        {/* SECTION VIEW */}
+        {view === 'section' && currentSection && (
+          <SectionContent 
+            section={sections.find(s => s.id === currentSection)!}
+            cardClass={cardClass}
+            goodClass={goodClass}
+            badClass={badClass}
+            infoClass={infoClass}
+            darkMode={darkMode}
+            onComplete={() => markSectionComplete(currentSection)}
+            isCompleted={completedSections.has(currentSection)}
+            onOpenSandbox={openInSandbox}
+            onBack={() => setView('home')}
+          />
         )}
 
         {/* EXERCISES VIEW */}
@@ -361,6 +375,12 @@ export default function App() {
             sandboxPrompt={sandboxPrompt}
             showSandbox={showSandbox}
             setShowSandbox={setShowSandbox}
+            googleAuth={googleAuth}
+            saveGoogleAuth={saveGoogleAuth}
+            clearGoogleAuth={clearGoogleAuth}
+            showAuthForm={showAuthForm}
+            setShowAuthForm={setShowAuthForm}
+            authStatus={authStatus}
           />
         )}
       </main>
@@ -378,9 +398,9 @@ export default function App() {
   );
 }
 
-// ==================== MODULE CONTENT ====================
-function ModuleContent({ module: mod, cardClass, goodClass, badClass, infoClass, darkMode, onComplete, isCompleted, onOpenSandbox, onNext, onPrev, isFirst, isLast }: {
-  module: typeof modules[0];
+// ==================== SECTION CONTENT ====================
+function SectionContent({ section: sec, cardClass, goodClass, badClass, infoClass, darkMode, onComplete, isCompleted, onOpenSandbox, onBack }: {
+  section: typeof sections[0];
   cardClass: string;
   goodClass: string;
   badClass: string;
@@ -389,26 +409,19 @@ function ModuleContent({ module: mod, cardClass, goodClass, badClass, infoClass,
   onComplete: () => void;
   isCompleted: boolean;
   onOpenSandbox: (prompt: string) => void;
-  onNext: () => void;
-  onPrev: () => void;
-  isFirst: boolean;
-  isLast: boolean;
+  onBack: () => void;
 }) {
-  const renderTheory = (text: string) => {
+  const renderContent = (text: string) => {
     return text.split('\n').map((line, i) => {
-      if (line.startsWith('### ')) {
-        return <h3 key={i} className="font-bold text-base mt-4 mb-1">{line.replace('### ', '')}</h3>;
-      }
       if (line.startsWith('**') && line.endsWith('**')) {
-        return <p key={i} className="font-bold mt-2">{line.replace(/\*\*/g, '')}</p>;
+        return <p key={i} className="font-bold mt-3">{line.replace(/\*\*/g, '')}</p>;
       }
-      if (line.startsWith('- ') || line.startsWith('* ')) {
-        return <li key={i} className="ml-4 list-disc text-sm">{line.replace(/^[*-] /, '').replace(/\*\*/g, '')}</li>;
+      if (line.startsWith('- ')) {
+        return <li key={i} className="ml-4 list-disc text-sm mb-1">{line.replace(/^- /, '').replace(/\*\*(.*?)\*\*/g, '$1')}</li>;
       }
       if (line.trim() === '') {
         return <div key={i} className="h-2" />;
       }
-      // Handle inline bold
       const parts = line.split(/\*\*(.*?)\*\*/g);
       return (
         <p key={i} className="text-sm mb-1">
@@ -420,14 +433,23 @@ function ModuleContent({ module: mod, cardClass, goodClass, badClass, infoClass,
 
   return (
     <div className="space-y-5">
-      <h1 className="text-xl sm:text-2xl font-bold">{mod.title}</h1>
-      <p className="opacity-70 text-sm">{mod.description}</p>
+      <button onClick={onBack} className="text-sm hover:underline opacity-70 hover:opacity-100 transition-opacity">
+        ← Назад к разделам
+      </button>
 
-      {/* Theory */}
+      <div className="flex items-start gap-3">
+        <div className="text-4xl flex-shrink-0">{sec.icon}</div>
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold">{sec.title}</h1>
+          <p className="opacity-70 text-sm mt-1">{sec.description}</p>
+        </div>
+      </div>
+
+      {/* Content */}
       <div className={`border rounded-lg p-5 ${cardClass}`}>
-        <h2 className="font-semibold text-lg mb-3 flex items-center gap-2">📖 Теория</h2>
+        <h2 className="font-semibold text-lg mb-3 flex items-center gap-2">📖 Пояснение</h2>
         <div className="max-w-none">
-          {renderTheory(mod.theory)}
+          {renderContent(sec.content)}
         </div>
       </div>
 
@@ -436,9 +458,9 @@ function ModuleContent({ module: mod, cardClass, goodClass, badClass, infoClass,
         <h2 className="font-semibold text-base mb-2 flex items-center gap-2">
           <span className="text-green-600">✅</span> Хороший промпт
         </h2>
-        <pre className="text-sm whitespace-pre-wrap font-mono mb-3 leading-relaxed">{mod.goodPrompt}</pre>
+        <pre className="text-sm whitespace-pre-wrap font-mono mb-3 leading-relaxed">{sec.goodPrompt}</pre>
         <button
-          onClick={() => onOpenSandbox(mod.goodPrompt)}
+          onClick={() => onOpenSandbox(sec.goodPrompt)}
           className="text-sm px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
         >
           🧪 Открыть в песочнице
@@ -450,7 +472,7 @@ function ModuleContent({ module: mod, cardClass, goodClass, badClass, infoClass,
         <h2 className="font-semibold text-base mb-2 flex items-center gap-2">
           <span className="text-red-600">❌</span> Плохой промпт
         </h2>
-        <pre className="text-sm font-mono">{mod.badPrompt}</pre>
+        <pre className="text-sm font-mono">{sec.badPrompt}</pre>
       </div>
 
       {/* Explanation */}
@@ -458,26 +480,14 @@ function ModuleContent({ module: mod, cardClass, goodClass, badClass, infoClass,
         <h2 className="font-semibold text-base mb-2 flex items-center gap-2">
           <span className="text-blue-600">💡</span> Почему так?
         </h2>
-        <p className="text-sm">{mod.explanation}</p>
-      </div>
-
-      {/* Exercise */}
-      <div className={`border rounded-lg p-5 ${cardClass}`}>
-        <h2 className="font-semibold text-base mb-2 flex items-center gap-2">🎯 Практическое задание</h2>
-        <p className="text-sm mb-3">{mod.exercise}</p>
-        <button
-          onClick={() => onOpenSandbox('')}
-          className="text-sm px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          🧪 Перейти в песочницу для выполнения
-        </button>
+        <p className="text-sm">{sec.explanation}</p>
       </div>
 
       {/* Tips */}
       <div className={`border rounded-lg p-5 ${cardClass}`}>
         <h2 className="font-semibold text-base mb-3">💡 Ключевые правила</h2>
         <ul className="space-y-2">
-          {mod.tips.map((tip, i) => (
+          {sec.tips.map((tip, i) => (
             <li key={i} className="text-sm flex items-start gap-2">
               <span className="text-blue-500 font-bold mt-0.5 flex-shrink-0">•</span>
               <span>{tip}</span>
@@ -489,17 +499,16 @@ function ModuleContent({ module: mod, cardClass, goodClass, badClass, infoClass,
       {/* Takeaway */}
       <div className={`border rounded-lg p-5 ${darkMode ? 'bg-yellow-900/20 border-yellow-700' : 'bg-yellow-50 border-yellow-200'}`}>
         <h2 className="font-semibold text-base mb-2">📌 Главный вывод</h2>
-        <p className="text-sm font-medium">{mod.takeaway}</p>
+        <p className="text-sm font-medium">{sec.takeaway}</p>
       </div>
 
-      {/* Navigation */}
+      {/* Action */}
       <div className={`flex items-center justify-between pt-4 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
         <button
-          onClick={onPrev}
-          disabled={isFirst}
-          className={`px-4 py-2 rounded-lg border text-sm transition-colors ${isFirst ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-gray-700'} ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}
+          onClick={onBack}
+          className={`px-4 py-2 rounded-lg border text-sm transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}
         >
-          ← Предыдущий
+          ← К разделам
         </button>
         
         <div className="flex items-center gap-2">
@@ -508,19 +517,18 @@ function ModuleContent({ module: mod, cardClass, goodClass, badClass, infoClass,
               onClick={onComplete}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm transition-colors"
             >
-              ✓ Отметить пройденным
+              ✓ Отметить как изученное
             </button>
           ) : (
-            <span className="text-green-600 font-medium text-sm flex items-center gap-1">✓ Пройден</span>
+            <span className="text-green-600 font-medium text-sm flex items-center gap-1">✓ Изучено</span>
           )}
         </div>
 
         <button
-          onClick={onNext}
-          disabled={isLast}
-          className={`px-4 py-2 rounded-lg border text-sm transition-colors ${isLast ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-gray-700'} ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}
+          onClick={() => onOpenSandbox('')}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm transition-colors"
         >
-          Следующий →
+          🧪 В песочницу →
         </button>
       </div>
     </div>
@@ -676,17 +684,25 @@ function ExerciseDetail({ exercise, cardClass, goodClass, badClass, infoClass, d
 }
 
 // ==================== SANDBOX VIEW ====================
-function SandboxView({ cardClass, darkMode, sandboxPrompt, showSandbox, setShowSandbox }: {
+function SandboxView({ cardClass, darkMode, sandboxPrompt, showSandbox, setShowSandbox, googleAuth, saveGoogleAuth, clearGoogleAuth, showAuthForm, setShowAuthForm, authStatus }: {
   cardClass: string;
   darkMode: boolean;
   sandboxPrompt: string;
   showSandbox: boolean;
   setShowSandbox: (v: boolean) => void;
+  googleAuth: GoogleAuth;
+  saveGoogleAuth: (auth: GoogleAuth) => void;
+  clearGoogleAuth: () => void;
+  showAuthForm: boolean;
+  setShowAuthForm: (v: boolean) => void;
+  authStatus: 'idle' | 'saved' | 'error';
 }) {
   const [localPrompt, setLocalPrompt] = useState(sandboxPrompt);
   const [copied, setCopied] = useState(false);
+  const [authEmail, setAuthEmail] = useState(googleAuth.email);
+  const [authPassword, setAuthPassword] = useState(googleAuth.password);
+  const [authRemember, setAuthRemember] = useState(googleAuth.remember);
 
-  // Sync when sandboxPrompt changes from outside
   useEffect(() => {
     if (sandboxPrompt) setLocalPrompt(sandboxPrompt);
   }, [sandboxPrompt]);
@@ -697,10 +713,134 @@ function SandboxView({ cardClass, darkMode, sandboxPrompt, showSandbox, setShowS
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleSaveAuth = () => {
+    if (!authEmail.trim()) {
+      alert('Введите email');
+      return;
+    }
+    saveGoogleAuth({
+      email: authEmail,
+      password: authPassword,
+      remember: authRemember
+    });
+  };
+
   return (
     <div className="space-y-5">
       <h1 className="text-2xl font-bold">🧪 Песочница QWEN</h1>
       <p className="opacity-70 text-sm">Практикуйтесь в написании промптов и проверяйте результат в QWEN. Скопируйте промпт и вставьте в чат QWEN.</p>
+
+      {/* Google Auth Section */}
+      <div className={`border rounded-lg p-5 ${cardClass}`}>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold flex items-center gap-2">
+            🔐 Авторизация Google для QWEN
+          </h2>
+          <button
+            onClick={() => setShowAuthForm(!showAuthForm)}
+            className="text-sm px-3 py-1 border rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          >
+            {showAuthForm ? 'Скрыть' : 'Настроить'}
+          </button>
+        </div>
+
+        {googleAuth.email && !showAuthForm && (
+          <div className={`p-3 rounded-lg border ${darkMode ? 'bg-green-900/20 border-green-700' : 'bg-green-50 border-green-200'}`}>
+            <p className="text-sm">
+              ✓ Авторизация сохранена: <strong>{googleAuth.email}</strong>
+              {googleAuth.remember && <span className="ml-2 text-xs opacity-60">(запомнено)</span>}
+            </p>
+            <button
+              onClick={clearGoogleAuth}
+              className="text-xs text-red-600 hover:underline mt-1"
+            >
+              Очистить сохранённые данные
+            </button>
+          </div>
+        )}
+
+        {showAuthForm && (
+          <div className="space-y-3">
+            <div className={`p-3 rounded-lg text-xs ${darkMode ? 'bg-yellow-900/20 border border-yellow-700' : 'bg-yellow-50 border border-yellow-200'}`}>
+              <strong>⚠️ Важно:</strong> Данные сохраняются локально в вашем браузере (localStorage). 
+              Они не передаются на сервер. Используйте только на своём устройстве.
+              Для входа в QWEN откройте chat.qwen.ai и используйте эти данные.
+            </div>
+
+            <div>
+              <label className="text-sm font-medium block mb-1">Email Google:</label>
+              <input
+                type="email"
+                value={authEmail}
+                onChange={(e) => setAuthEmail(e.target.value)}
+                placeholder="your.email@gmail.com"
+                className={`w-full p-2 border rounded-lg text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium block mb-1">Пароль:</label>
+              <input
+                type="password"
+                value={authPassword}
+                onChange={(e) => setAuthPassword(e.target.value)}
+                placeholder="••••••••"
+                className={`w-full p-2 border rounded-lg text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+              />
+            </div>
+
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={authRemember}
+                onChange={(e) => setAuthRemember(e.target.checked)}
+                className="rounded"
+              />
+              Запомнить для дальнейшей авторизации
+            </label>
+
+            <div className="flex gap-2">
+              <button
+                onClick={handleSaveAuth}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm transition-colors"
+              >
+                💾 Сохранить
+              </button>
+              {authStatus === 'saved' && (
+                <span className="text-sm text-green-600 flex items-center">✓ Сохранено!</span>
+              )}
+            </div>
+
+            {googleAuth.email && (
+              <button
+                onClick={clearGoogleAuth}
+                className="text-xs text-red-600 hover:underline"
+              >
+                Удалить сохранённые данные
+              </button>
+            )}
+          </div>
+        )}
+
+        {googleAuth.email && !showAuthForm && (
+          <div className="mt-3">
+            <a
+              href="https://accounts.google.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm px-3 py-1.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors inline-flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              Войти через Google
+            </a>
+          </div>
+        )}
+      </div>
 
       {/* Info about limitations */}
       <div className={`border rounded-lg p-4 ${darkMode ? 'bg-yellow-900/20 border-yellow-700' : 'bg-yellow-50 border-yellow-200'}`}>
@@ -708,6 +848,7 @@ function SandboxView({ cardClass, darkMode, sandboxPrompt, showSandbox, setShowS
         <ul className="text-sm space-y-1 opacity-80">
           <li>• Напишите промпт в поле ниже и скопируйте его.</li>
           <li>• Откройте QWEN (кнопка ниже) и вставьте промпт в чат.</li>
+          <li>• Если нужна авторизация — используйте сохранённые данные Google.</li>
           <li>• Изучите ответ модели и оцените, насколько он полезен.</li>
           <li>• Если ответ не устроил — улучшите промпт и попробуйте снова.</li>
           <li>• Встроенный фрейм может не загрузиться из-за ограничений безопасности браузера. В этом случае используйте кнопку «Открыть в новой вкладке».</li>
