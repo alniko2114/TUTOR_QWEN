@@ -31,7 +31,7 @@ export default function App() {
       try {
         return JSON.parse(saved);
       } catch {
-        return { provider: 'openrouter', apiKey: '', model: 'qwen/qwen-2.5-72b-instruct', remember: false };
+        return { provider: 'openrouter', apiKey: '', model: 'qwen/qwen3.8-27b:free', remember: false };
       }
     }
     return { provider: 'openrouter', apiKey: '', model: 'qwen/qwen-2.5-72b-instruct', remember: false };
@@ -70,7 +70,7 @@ export default function App() {
 
   const clearApiConfig = useCallback(() => {
     localStorage.removeItem('qwen_api_config');
-    setApiConfig({ provider: 'openrouter', apiKey: '', model: 'qwen/qwen-2.5-72b-instruct', remember: false });
+    setApiConfig({ provider: 'openrouter', apiKey: '', model: 'qwen/qwen3.8-27b:free', remember: false });
     setApiStatus('idle');
   }, []);
 
@@ -854,7 +854,7 @@ function SandboxView({ cardClass, darkMode, sandboxPrompt, showSandbox, setShowS
                 <li>Нажмите "Create Key" → скопируйте ключ</li>
                 <li>Бесплатные модели QWEN доступны без пополнения баланса</li>
               </ol>
-              <p className="mt-2 text-xs opacity-70">💡 Бесплатные модели: qwen/qwen-2.5-72b-instruct, qwen/qwen-2.5-7b-instruct</p>
+              <p className="mt-2 text-xs opacity-70">💡 Бесплатная модель: <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">qwen/qwen3.8-27b:free</code></p>
             </div>
 
             <div className={`p-4 rounded-lg border ${darkMode ? 'bg-green-900/20 border-green-700' : 'bg-green-50 border-green-200'}`}>
@@ -866,7 +866,7 @@ function SandboxView({ cardClass, darkMode, sandboxPrompt, showSandbox, setShowS
                 <li>Скопируйте ключ</li>
                 <li>Бесплатный тариф включает QWEN модели</li>
               </ol>
-              <p className="mt-2 text-xs opacity-70">💡 Бесплатные модели: qwen-2.5-72b, qwen-2.5-32b</p>
+              <p className="mt-2 text-xs opacity-70">💡 Модели: Qwen3 32B, Qwen 2.5 72B (бесплатно с лимитами)</p>
             </div>
 
             <div className={`p-4 rounded-lg border ${darkMode ? 'bg-purple-900/20 border-purple-700' : 'bg-purple-50 border-purple-200'}`}>
@@ -957,18 +957,48 @@ function SandboxView({ cardClass, darkMode, sandboxPrompt, showSandbox, setShowS
 
             <div>
               <label className="text-sm font-medium block mb-1">Модель:</label>
-              <input
-                type="text"
+              <select
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
-                placeholder={provider === 'openrouter' ? 'qwen/qwen-2.5-72b-instruct' : 'qwen-2.5-72b'}
                 className={`w-full p-2 border rounded-lg text-sm font-mono ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
-              />
+              >
+                {provider === 'openrouter' && (
+                  <>
+                    <option value="qwen/qwen3.8-27b:free">🆓 Qwen3.8 27B (бесплатно)</option>
+                    <option value="qwen/qwen3.8-flash">💰 Qwen3.8 Flash ($0.15/млн)</option>
+                    <option value="qwen/qwen3.8-max-0902">💰 Qwen3.8 Max ($2/млн)</option>
+                    <option value="qwen/qwen3.7-plus">💰 Qwen3.7 Plus ($0.32/млн)</option>
+                    <option value="qwen/qwen3.6-flash">💰 Qwen3.6 Flash ($0.19/млн)</option>
+                    <option value="qwen/qwen3-32b">💰 Qwen3 32B ($0.08/млн)</option>
+                    <option value="qwen/qwen3-8b">💰 Qwen3 8B ($0.12/млн)</option>
+                  </>
+                )}
+                {provider === 'groq' && (
+                  <>
+                    <option value="qwen/qwen3-32b">Qwen3 32B</option>
+                    <option value="qwen/qwen-2.5-72b-instruct">Qwen 2.5 72B</option>
+                  </>
+                )}
+                {provider === 'dashscope' && (
+                  <>
+                    <option value="qwen-turbo">Qwen Turbo (самая дешёвая)</option>
+                    <option value="qwen-plus">Qwen Plus (сбалансированная)</option>
+                    <option value="qwen-max">Qwen Max (самая мощная)</option>
+                  </>
+                )}
+                {provider === 'huggingface' && (
+                  <>
+                    <option value="Qwen/Qwen2.5-72B-Instruct">Qwen 2.5 72B Instruct</option>
+                    <option value="Qwen/Qwen2.5-32B-Instruct">Qwen 2.5 32B Instruct</option>
+                    <option value="Qwen/Qwen2.5-7B-Instruct">Qwen 2.5 7B Instruct</option>
+                  </>
+                )}
+              </select>
               <p className="text-xs opacity-60 mt-1">
-                {provider === 'openrouter' && 'Пример: qwen/qwen-2.5-72b-instruct, qwen/qwen-2.5-7b-instruct'}
-                {provider === 'groq' && 'Пример: qwen-2.5-72b, qwen-2.5-32b'}
-                {provider === 'dashscope' && 'Пример: qwen-turbo, qwen-plus, qwen-max'}
-                {provider === 'huggingface' && 'Пример: Qwen/Qwen2.5-72B-Instruct'}
+                {provider === 'openrouter' && '🆓 = бесплатно. 💰 = платно (цены за 1 млн входных токенов).'}
+                {provider === 'groq' && 'Бесплатно, но есть лимиты по запросам в день.'}
+                {provider === 'dashscope' && '70 млн токенов бесплатно при регистрации.'}
+                {provider === 'huggingface' && 'Бесплатный тариф с ограничениями скорости.'}
               </p>
             </div>
 
