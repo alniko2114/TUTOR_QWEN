@@ -4,6 +4,12 @@ import { exercises, categories } from './data/exercises';
 
 type View = 'welcome' | 'home' | 'section' | 'exercises' | 'sandbox' | 'exercise-detail';
 
+// Тип для PWA install event
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
 interface APIConfig {
   provider: 'openrouter' | 'dashscope' | 'groq' | 'huggingface' | 'custom';
   apiKey: string;
@@ -38,6 +44,46 @@ export default function App() {
   });
   const [showApiForm, setShowApiForm] = useState(false);
   const [apiStatus, setApiStatus] = useState<'idle' | 'saved' | 'error'>('idle');
+
+  // PWA Install
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [isInstalled, setIsInstalled] = useState(false);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e as BeforeInstallPromptEvent);
+      setShowInstallBanner(true);
+    };
+    const installedHandler = () => {
+      setIsInstalled(true);
+      setShowInstallBanner(false);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', installedHandler);
+    
+    // Проверка, установлено ли уже
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstalled(true);
+    }
+    
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener('appinstalled', installedHandler);
+    };
+  }, []);
+
+  const handleInstall = useCallback(async () => {
+    if (!installPrompt) return;
+    await installPrompt.prompt();
+    const choice = await installPrompt.userChoice;
+    if (choice.outcome === 'accepted') {
+      setIsInstalled(true);
+    }
+    setInstallPrompt(null);
+    setShowInstallBanner(false);
+  }, [installPrompt]);
 
   const totalProgress = Math.round(
     ((completedSections.size + completedExercises.size) / (sections.length + exercises.length)) * 100
@@ -321,6 +367,39 @@ export default function App() {
             />
           </div>
         </header>
+      )}
+
+      {/* PWA Install Banner */}
+      {showInstallBanner && !isInstalled && view !== 'welcome' && (
+        <div className={`fixed bottom-16 left-4 right-4 sm:left-auto sm:right-4 sm:w-96 z-50 border rounded-lg p-4 shadow-lg ${darkMode ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-300'}`}>
+          <div className="flex items-start gap-3">
+            <div className="text-2xl flex-shrink-0">📱</div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium mb-1">Установить приложение?</p>
+              <p className="text-xs opacity-70 mb-2">Тренажёр будет работать как обычное приложение — с иконкой на рабочем столе и офлайн-доступом.</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleInstall}
+                  className="px-3 py-1.5 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition-colors"
+                >
+                  Установить
+                </button>
+                <button
+                  onClick={() => setShowInstallBanner(false)}
+                  className={`px-3 py-1.5 rounded text-xs transition-colors ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'}`}
+                >
+                  Позже
+                </button>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowInstallBanner(false)}
+              className="opacity-50 hover:opacity-100 text-lg leading-none"
+            >
+              ×
+            </button>
+          </div>
+        </div>
       )}
 
       <main className="max-w-5xl mx-auto px-4 py-6">

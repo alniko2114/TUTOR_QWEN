@@ -1,0 +1,50 @@
+{
+  "name": "Тренажёр промптинга QWEN",
+  "short_name": "ПромптТренажёр",
+  "description": "Интерактивный учебный тренажёр для обучения промптингу на QWEN",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4a90e2",
+  "orientation": "any",
+  "lang": "ru",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Разделы",
+      "short_name": "Разделы",
+      "description": "Учебные модули",
+      "url": "/?view=home",
+      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Практика",
+      "short_name": "Практика",
+      "description": "Практические задания",
+      "url": "/?view=exercises",
+      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Песочница",
+      "short_name": "Песочница",
+      "description": "Песочница QWEN",
+      "url": "/?view=sandbox",
+      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
+    }
+  ]
+}
