@@ -1,0 +1,34 @@
+{
+  "name": "Тренажёр промптинга QWEN",
+  "short_name": "ПромптТренажёр",
+  "description": "Интерактивный учебный тренажёр для обучения промптингу на QWEN",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4a90e2",
+  "orientation": "any",
+  "lang": "ru",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Разделы",
+      "url": "/?view=home"
+    },
+    {
+      "name": "Практика",
+      "url": "/?view=exercises"
+    },
+    {
+      "name": "Песочница",
+      "url": "/?view=sandbox"
+    }
+  ]
+}

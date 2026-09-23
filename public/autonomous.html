@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Тренажёр промптинга для QWEN</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; background: #f8fafc; color: #1e293b; }
+body.dark { background: #0f172a; color: #e2e8f0; }
+.container { max-width: 1000px; margin: 0 auto; padding: 16px; }
+header { background: white; border-bottom: 1px solid #e2e8f0; padding: 12px 0; position: sticky; top: 0; z-index: 100; }
+body.dark header { background: #1e293b; border-color: #334155; }
+.header-inner { max-width: 1000px; margin: 0 auto; padding: 0 16px; display: flex; justify-content: space-between; align-items: center; }
+.logo { font-weight: bold; font-size: 18px; cursor: pointer; }
+nav { display: flex; gap: 4px; }
+nav button { background: none; border: none; padding: 6px 10px; cursor: pointer; border-radius: 6px; font-size: 13px; color: inherit; }
+nav button.active { background: #dbeafe; color: #1e40af; }
+body.dark nav button.active { background: #1e3a8a; color: #93c5fd; }
+.progress-bar { height: 4px; background: #e2e8f0; }
+body.dark .progress-bar { background: #334155; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #2563eb); transition: width 0.5s; }
+h1 { font-size: 24px; margin-bottom: 8px; }
+h2 { font-size: 20px; margin-bottom: 12px; }
+h3 { font-size: 16px; margin-bottom: 8px; }
+.card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+body.dark .card { background: #1e293b; border-color: #334155; }
+.good { background: #f0fdf4; border-color: #86efac; }
+body.dark .good { background: rgba(22,101,52,0.2); border-color: #166534; }
+.bad { background: #fef2f2; border-color: #fca5a5; }
+body.dark .bad { background: rgba(127,29,29,0.2); border-color: #7f1d1d; }
+.info { background: #eff6ff; border-color: #93c5fd; }
+body.dark .info { background: rgba(30,58,138,0.2); border-color: #1e3a8a; }
+.btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s; }
+.btn-primary { background: #3b82f6; color: white; }
+.btn-primary:hover { background: #2563eb; }
+.btn-success { background: #16a34a; color: white; }
+.btn-success:hover { background: #15803d; }
+.btn-secondary { background: #e2e8f0; color: #1e293b; }
+body.dark .btn-secondary { background: #334155; color: #e2e8f0; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+textarea { width: 100%; min-height: 120px; padding: 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: monospace; font-size: 14px; resize: vertical; background: white; color: inherit; }
+body.dark textarea { background: #0f172a; border-color: #475569; }
+pre { white-space: pre-wrap; font-family: monospace; font-size: 13px; line-height: 1.5; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; }
+.badge-green { background: #dcfce7; color: #166534; }
+body.dark .badge-green { background: rgba(22,101,52,0.3); color: #86efac; }
+.badge-gray { background: #f1f5f9; color: #475569; }
+body.dark .badge-gray { background: #334155; color: #cbd5e1; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .grid-2 { grid-template-columns: 1fr; } }
+.clickable { cursor: pointer; transition: all 0.2s; }
+.clickable:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); transform: translateY(-1px); }
+.hidden { display: none !important; }
+.flex { display: flex; }
+.flex-wrap { flex-wrap: wrap; }
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.mb-2 { margin-bottom: 8px; }
+.mb-3 { margin-bottom: 12px; }
+.mb-4 { margin-bottom: 16px; }
+.mt-3 { margin-top: 12px; }
+.mt-4 { margin-top: 16px; }
+.text-sm { font-size: 14px; }
+.text-xs { font-size: 12px; }
+.text-muted { opacity: 0.7; }
+details summary { cursor: pointer; user-select: none; font-weight: 500; }
+details[open] summary { margin-bottom: 8px; }
+ul { padding-left: 20px; }
+li { margin-bottom: 4px; }
+.fab { position: fixed; bottom: 20px; right: 20px; background: #3b82f6; color: white; border: none; padding: 12px 20px; border-radius: 24px; cursor: pointer; box-shadow: 0 4px 12px rgba(59,130,246,0.4); font-size: 14px; z-index: 50; }
+.fab:hover { background: #2563eb; }
+.welcome { min-height: 80vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.welcome h1 { font-size: 32px; margin-bottom: 16px; }
+iframe { width: 100%; height: 600px; border: none; border-radius: 0 0 8px 8px; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+</style>
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <div class="logo" onclick="showView('home')">🎓 ПромптТренажёр</div>
+    <nav>
+      <button id="nav-home" onclick="showView('home')" class="active">📖 Разделы</button>
+      <button id="nav-exercises" onclick="showView('exercises')">🎯 Практика</button>
+      <button id="nav-sandbox" onclick="showView('sandbox')">🧪 Песочница</button>
+      <button onclick="toggleTheme()" id="themeBtn">🌙</button>
+    </nav>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressBar" style="width:0%"></div></div>
+</header>
+
+<div class="container">
+  <!-- HOME -->
+  <div id="view-home" class="tab-content active">
+    <h1>Поясняющие разделы</h1>
+    <p class="text-muted text-sm mb-4">Изучайте в любом порядке. Каждый раздел — объяснение, примеры, задание.</p>
+    <div class="grid" id="sectionsGrid"></div>
+  </div>
+
+  <!-- SECTION -->
+  <div id="view-section" class="tab-content"></div>
+
+  <!-- EXERCISES -->
+  <div id="view-exercises" class="tab-content">
+    <h1>Практические задания</h1>
+    <p class="text-muted text-sm mb-4">Выберите область и тренируйтесь на реальных кейсах.</p>
+    <div class="flex flex-wrap gap-2 mb-4" id="categoryFilter"></div>
+    <div id="exercisesList"></div>
+  </div>
+
+  <!-- EXERCISE DETAIL -->
+  <div id="view-exercise" class="tab-content"></div>
+
+  <!-- SANDBOX -->
+  <div id="view-sandbox" class="tab-content">
+    <h1>🧪 Песочница QWEN</h1>
+    <p class="text-muted text-sm mb-4">Практикуйтесь в написании промптов. Скопируйте промпт и вставьте в QWEN.</p>
+    
+    <div class="card">
+      <h3>📝 Ваш промпт</h3>
+      <textarea id="sandboxPrompt" placeholder="Напишите промпт здесь, затем скопируйте и вставьте в QWEN..."></textarea>
+      <div class="flex gap-2 mt-3 flex-wrap">
+        <button class="btn btn-primary" onclick="copySandboxPrompt()">📋 Копировать</button>
+        <a href="https://chat.qwen.ai" target="_blank" class="btn btn-success" style="text-decoration:none;display:inline-block;">🚀 Открыть chat.qwen.ai ↗</a>
+      </div>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div style="padding:12px 16px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
+        <span class="text-sm" style="font-weight:500;">🌐 chat.qwen.ai</span>
+        <a href="https://chat.qwen.ai" target="_blank" class="text-xs" style="color:#3b82f6;">Открыть в новой вкладке ↗</a>
+      </div>
+      <iframe src="https://chat.qwen.ai" sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
+    </div>
+
+    <div class="card">
+      <h3>⚡ Быстрые шаблоны</h3>
+      <p class="text-xs text-muted mb-3">Нажмите, чтобы подставить шаблон. Замените [текст] на свой.</p>
+      <div id="templates"></div>
+    </div>
+  </div>
+</div>
+
+<button class="fab" onclick="showView('sandbox')" id="fabBtn">🧪 Песочница</button>
+
+<script>
+// ============ DATA ============
+const sections = [
+  {
+    id: "what-is-ai", icon: "🤖", title: "Что такое ИИ простыми словами",
+    description: "Как работает языковая модель и почему с ней нужно уметь разговаривать.",
+    content: `<b>ИИ (искусственный интеллект)</b> — программа, обученная на огромном количестве текстов. Она отвечает на вопросы, пишет тексты, объясняет сложное.\n\n<b>LLM (Large Language Model)</b> — «большая языковая модель». Представьте очень начитанного собеседника. Он не «думает» как человек, а предсказывает наиболее подходящие слова.\n\n<b>Как это работает:</b>\n- Вы пишете запрос (промпт)\n- Модель анализирует ваш текст\n- Модель генерирует ответ, слово за словом\n\n<b>Важно:</b>\n- Модель не «знает» факты — она предсказывает текст\n- Качество ответа зависит от качества запроса\n- Модель может ошибаться — проверяйте информацию\n- <b>QWEN</b> — современная модель, доступна на chat.qwen.ai`,
+    good: "Объясни простыми словами, что такое нейросеть, как если бы мне было 12 лет. Приведи пример из повседневной жизни.",
+    bad: "Что такое нейросеть?",
+    explanation: "Хороший промпт указывает возраст/уровень и просит пример. Плохой — слишком общий.",
+    takeaway: "ИИ — программа, генерирующая текст на основе запроса. Качество ответа зависит от формулировки.",
+    tips: ["Указывайте, для кого ответ", "Просите примеры", "Не бойтесь уточнять"]
+  },
+  {
+    id: "what-is-prompt", icon: "💬", title: "Что такое промпт",
+    description: "Промпт — это ваш запрос к модели. Чем точнее, тем лучше ответ.",
+    content: `<b>Промпт</b> — текст, который вы отправляете модели. Это ваш «вопрос» или «задание».\n\n<b>Типы промптов:</b>\n- <b>Вопрос</b> — «Как сделать...?»\n- <b>Задача</b> — «Напиши письмо...»\n- <b>Трансформация</b> — «Переведи...», «Сократи...»\n- <b>Генерация</b> — «Придумай...»\n- <b>Анализ</b> — «Сравни...»\n\n<b>Почему формулировка важна:</b>\nМодель не читает мысли. «Напиши письмо» — модель не знает кому, о чём, в каком стиле.\n\n<b>Правило:</b> чем конкретнее промпт, тем лучше результат.`,
+    good: "Напиши вежливое письмо коллеге с просьбой перенести встречу с понедельника на среду. Тон — деловой, но дружелюбный. Объём — 3-4 предложения.",
+    bad: "Напиши письмо",
+    explanation: "Хороший промпт: кому, о чём, тон, объём. Плохой — никакой конкретики.",
+    takeaway: "Промпт — ваш запрос. Чем конкретнее, тем лучше. Указывайте: что, для кого, в каком формате.",
+    tips: ["Думайте о промпте как о задании для помощника", "Указывайте тему, объём, стиль", "Если ответ не устроил — переформулируйте"]
+  },
+  {
+    id: "prompt-structure", icon: "🧩", title: "Структура хорошего промпта",
+    description: "Четыре элемента: контекст, роль, задача, формат.",
+    content: `<b>Хороший промпт содержит 4 элемента:</b>\n\n<b>1. Контекст</b> — обстоятельства, фон.\nПример: «Я начинающий садовод, живу в Подмосковье.»\n\n<b>2. Роль</b> — кем должна «быть» модель.\nПример: «Ты — опытный строитель.»\n\n<b>3. Задача</b> — что конкретно нужно.\nПример: «Составь пошаговый план строительства сарая.»\n\n<b>4. Формат</b> — в каком виде ответ.\nПример: «Оформи в виде нумерованного списка.»\n\n<b>Формула:</b> Контекст + Роль + Задача + Формат = Отличный результат`,
+    good: "Ты — опытный строитель. Я живу в Подмосковье, хочу построить сарай 3×4 метра из бруса. Составь пошаговый план: от фундамента до крыши. Укажи материалы и инструменты. Формат: пронумерованный список.",
+    bad: "Как построить сарай?",
+    explanation: "Хороший промпт: роль, контекст, задача, формат. Плохой — абстрактный.",
+    takeaway: "Хороший промпт = Контекст + Роль + Задача + Формат.",
+    tips: ["Начните с задачи", "Добавьте контекст", "Укажите роль", "Попросите конкретный формат"]
+  },
+  {
+    id: "common-mistakes", icon: "⚠️", title: "Частые ошибки новичка",
+    description: "Разбираем типичные ошибки и учимся их избегать.",
+    content: `<b>Ошибка 1: Слишком общий запрос</b>\n❌ «Расскажи про ремонт»\n✅ «Составь чек-лист ремонта однокомнатной квартиры: что делать, какие материалы, бюджет.»\n\n<b>Ошибка 2: Нет контекста</b>\n❌ «Что купить?»\n✅ «Помоги выбрать робот-пылесос для квартиры 60 м² с двумя кошками. Бюджет до 30 000 руб.»\n\n<b>Ошибка 3: Много задач в одном промпте</b>\n❌ «Напиши план, найди билеты, посоветуй отель...»\n✅ Разбейте на несколько запросов.\n\n<b>Ошибка 4: Не указан формат</b>\n❌ «Объясни квантовую физику»\n✅ «Объясни основы квантовой физики для старшеклассника. Аналогии. 300-400 слов.»\n\n<b>Ошибка 5: Ожидание идеала с первого раза</b>\nУточняйте, переформулируйте.\n\n<b>Ошибка 6: Слепая вера в ответ</b>\nМодель может «галлюцинировать». Проверяйте факты.`,
+    good: "Помоги выбрать робот-пылесос для квартиры 60 м². Два кота, много ковров. Бюджет до 30 000 руб. 3-5 моделей, плюсы и минусы. Формат: таблица.",
+    bad: "Какой пылесос купить?",
+    explanation: "Хороший промпт: контекст, ограничения, конкретика, формат.",
+    takeaway: "Избегайте общих запросов, указывайте контекст и формат, проверяйте ответы.",
+    tips: ["Конкретика > общность", "Один промпт = одна задача", "Уточняйте", "Проверяйте факты"]
+  },
+  {
+    id: "improving", icon: "🔧", title: "Как улучшать слабый запрос",
+    description: "Техника пошагового улучшения промпта.",
+    content: `<b>Алгоритм улучшения:</b>\n\n<b>Шаг 1: Что не хватает?</b>\n- Что конкретно хочу получить?\n- Для кого ответ?\n- Какой формат?\n- Какие ограничения?\n\n<b>Шаг 2: Добавьте контекст</b>\nРасскажите, в какой ситуации вы.\n\n<b>Шаг 3: Укажите роль</b>\nПопросите ответить как специалист.\n\n<b>Шаг 4: Задайте формат</b>\nСписок? Таблица? Инструкция?\n\n<b>Шаг 5: Добавьте ограничения</b>\nОбъём, стиль, что включить/исключить.\n\n<b>Пример:</b>\nСлабый: «Помоги с поездкой»\n↓ + контекст\nЛучше: «Спланируй поездку в Казань на 3 дня»\n↓ + роль + формат\nЕщё лучше: «Ты — travel-блогер. План в Казань на 3 дня для семьи с ребёнком 7 лет.»\n↓ + ограничения\nОтлично: «...Бюджет 50 000 руб. Детские достопримечательности. По дням с расписанием.»`,
+    good: "Ты — опытный travel-блогер. План поездки в Казань на 3 дня для семьи с ребёнком 7 лет. Бюджет 50 000 руб. Детские достопримечательности, семейные рестораны, транспорт. По дням с расписанием.",
+    bad: "Помоги с поездкой",
+    explanation: "Путь от общего к конкретному: добавляем контекст, роль, формат, ограничения.",
+    takeaway: "Улучшение — итеративный процесс. Добавляйте элементы пошагово.",
+    tips: ["Начните с «что хочу получить»", "Не пытайтесь написать идеально сразу", "Используйте уточнения", "Сохраняйте удачные промпты"]
+  },
+  {
+    id: "qwen", icon: "✨", title: "Лучшие практики для QWEN",
+    description: "Специфика работы с QWEN.",
+    content: `<b>QWEN</b> — современная модель от Alibaba. Хорошо работает с русским.\n\n<b>Что QWEN делает хорошо:</b>\n- Понимает длинные запросы\n- Работает с русским\n- Генерирует таблицы, списки\n- Пишет код\n- Творческие задачи\n\n<b>Лучшие практики:</b>\n\n<b>1. Будьте конкретны</b>\nЧёткие, структурированные запросы.\n\n<b>2. Используйте структуру</b>\nКонтекст: ...\nЗадача: ...\nФормат: ...\n\n<b>3. Просите пошаговые рассуждения</b>\n«Рассуждай пошагово» — улучшает качество.\n\n<b>4. Указывайте, чего НЕ делать</b>\n«Не используй сложные термины» — работает.\n\n<b>5. Используйте примеры</b>\nПокажите ожидаемый формат.\n\n<b>6. Итеративно уточняйте</b>\n«Сделай короче», «Добавь примеров», «Убери воду».`,
+    good: "Контекст: готовлю ужин на 4 человек, есть курица, рис, овощи.\nЗадача: 3 варианта ужина с пошаговым рецептом.\nФормат: название, время, рецепт.\nОграничение: просто, до 40 минут.",
+    bad: "Что приготовить из курицы?",
+    explanation: "QWEN любит структуру и конкретику. Используйте разделы в промпте.",
+    takeaway: "QWEN любит структуру. Используйте разделы, просите пошагово, уточняйте.",
+    tips: ["Структурируйте промпт", "Добавляйте «Рассуждай пошагово»", "Указывайте, чего НЕ делать", "Показывайте пример формата", "Уточняйте ответ"]
+  }
+];
+
+const exercises = [
+  { id:"ex-1", category:"Бытовые задачи", title:"Ремонт: поклейка обоев", situation:"Комната 18 м², потолки 2.7 м, дверь и окно. Бюджет средний.", bad:"Как поклеить обои?", good:"Ты — опытный отделочник. Комната 18 м² (потолки 2.7 м, дверь, окно). Виниловые обои. Пошаговая инструкция: 1) материалы и инструменты, 2) подготовка стен, 3) поклейка. Бюджет. Формат: нумерованный список.", explanation:"Хороший промпт: роль, контекст, задача, формат. Плохой — общий.", task:"Составьте промпт для ремонта ванной комнаты.", hints:["Размеры","Состояние","Материалы с ценами","Бюджет"] },
+  { id:"ex-2", category:"Бытовые задачи", title:"Постройка сарая", situation:"Сарай на даче 3×4 м для инструментов.", bad:"Как построить сарай?", good:"Ты — строитель с 15-летним опытом. Сарай 3×4 м на даче для инвентаря. Грунт — суглинок. 1) материалы с ценами, 2) план от фундамента до крыши, 3) инструменты. На чём сэкономить. Формат: пронумерованный список.", explanation:"Хороший: роль, контекст, задача, формат. Плохой — абстрактный.", task:"Промпт для веранды 4×6 м к деревянному дому. Крыша, пол из террасной доски, бюджет 150 000 руб.", hints:["Тип дома","Назначение","Расчёт материалов","Бюджет"] },
+  { id:"ex-3", category:"Бытовые задачи", title:"Покупка телевизора", situation:"Гостиная. 55-65 дюймов. Бюджет 40-70 тыс. Фильмы и сериалы.", bad:"Какой телевизор купить?", good:"Телевизор для гостиной. 55-65 дюймов, 40-70 тыс. руб., фильмы и сериалы. 3-5 моделей 2024-2025. Название, цена, плюсы/минусы. Таблица. Совет по характеристикам.", explanation:"Хороший: контекст, ограничения, задача, формат. Плохой — без ориентиров.", task:"Промпт для холодильника: семья 3 чел., 300+ л, до 50 000 руб., зона свежести.", hints:["Размер семьи","Функции","Бюджет","Сравнение моделей"] },
+  { id:"ex-4", category:"Бытовые задачи", title:"Планирование поездки", situation:"СПб, 4 дня, вдвоём. Культура, музеи, еда. Бюджет 80 000 руб.", bad:"Что посмотреть в Питере?", good:"Ты — гид по СПб. План на 4 дня для пары (30-35 лет), культура, музеи, гастрономия. 80 000 руб. (без билетов и жилья). Утро/день/вечер, места, расходы. Советы по экономии.", explanation:"Хороший: роль, контекст, ограничения, задача, формат.", task:"Промпт для поездки на море с ребёнком 5 лет, 7 дней, бюджет 100 000 руб.", hints:["Возраст ребёнка","Требования к отелю","Детские активности","Пляж"] },
+  { id:"ex-5", category:"Бытовые задачи", title:"Составление письма", situation:"Письмо в УК: протечка крыши. Устно обращались — безрезультатно.", bad:"Напиши жалобу", good:"Официальное письмо-претензия в УК. Протечка крыши, портится ремонт. Устное обращение месяц назад. 1) проблема, 2) обязанности УК, 3) требование, 4) предупреждение о Жилинспекции. Официальный тон. 1 страница.", explanation:"Хороший: контекст, задача, тон, объём.", task:"Промпт для письма соседу сверху о шуме после 23:00.", hints:["Ситуация","Тон","Предложения","Объём"] },
+  { id:"ex-6", category:"Обучение и дети", title:"Математика (5 класс): дроби", situation:"Ребёнок не понимает дроби. Нужно объяснить просто.", bad:"Объясни дроби", good:"Ты — учитель математики 5 класса. Объясни «Обыкновенные дроби» для ученика, не понявшего на уроке. 1) аналогии (пицца), 2) визуальные примеры, 3) 3-4 задачи с решениями. Без сложных терминов. 10 минут чтения.", explanation:"Хороший: роль, контекст, формат, ограничения.", task:"Промпт для «Умножения столбиком» для 3 класса. Ребёнок любит игры и животных.", hints:["Класс","Аналогии","Задачи","Объём"] },
+  { id:"ex-7", category:"Обучение и дети", title:"ЕГЭ по русскому", situation:"11 класс, пунктуация в сложном предложении.", bad:"Помоги подготовиться к ЕГЭ", good:"Ты — репетитор, 50+ стобалльников. План подготовки к «Пунктуации в сложном предложении» для ЕГЭ. 1) правила с примерами, 2) ловушки, 3) 5 заданий с ответами. Формат: конспект.", explanation:"Хороший: роль, тема, структура, формат.", task:"Промпт для итогового сочинения «Честь и бесчестие». План и аргументы.", hints:["Формат","Тема","Аргументы","Структура"] },
+  { id:"ex-8", category:"Кулинария", title:"Ужин из продуктов", situation:"Курица, яйца, молоко, картофель, морковь, лук, сметана. 3 человека.", bad:"Что приготовить из курицы?", good:"Ты — домашний повар. 3 варианта ужина на 3 человек: курица, яйца, молоко, картофель, морковь, лук, сметана. Название, время, рецепт (до 7 шагов), базовые продукты. Разная сложность.", explanation:"Хороший: роль, продукты, люди, формат, ограничение.", task:"Промпт для десерта без выпечки за 15 мин: творог, бананы, печенье, мёд, какао.", hints:["Продукты","Время","Рецепт","Порции"] },
+  { id:"ex-9", category:"Кулинария", title:"Меню на неделю", situation:"Семья 3 чел. (ребёнок 8 лет). Бюджет 7000 руб/нед. Нет времени готовить.", bad:"Составь меню", good:"Меню на неделю для семьи 3 чел. (2 взрослых + ребёнок 8 лет). Бюджет 7000 руб/нед, готовка до 40 мин, полезно и ребёнку нравится. Таблица (день/завтрак/обед/ужин). Список продуктов с ценами.", explanation:"Хороший: контекст, ограничения, формат.", task:"Промпт для меню на 5 дней офисному работнику. Перекусы и обеды с собой.", hints:["Время","Предпочтения","Продукты","Хранение"] },
+  { id:"ex-10", category:"Техника", title:"Тормозит смартфон", situation:"Android, 2 года. Тормозит, батарея за полдня.", bad:"Телефон тормозит, что делать?", good:"Ты — мастер по смартфонам. Android, 2 года: приложения 5-10 сек, батарея полдня. Пошаговый план: от простого к сложному. Что делать, время, помощь. Когда в сервис.", explanation:"Хороший: роль, контекст, задача, формат.", task:"Промпт: ноутбук Windows 10 не подключается к Wi-Fi, телефон подключается.", hints:["Симптомы","Что пробовали","От простого к сложному","ОС"] },
+  { id:"ex-11", category:"Техника", title:"Настройка роутера", situation:"Новый Wi-Fi роутер. Подключить, пароль, гостевая сеть. 3 комнаты.", bad:"Как настроить роутер?", good:"Ты — IT-специалист. Роутер TP-Link Archer C6. Квартира 3 комнаты, 70 м². 1) подключение, 2) пароль, 3) гостевая сеть, 4) расположение. Простыми словами.", explanation:"Хороший: роль, модель, контекст, задача, ограничение.", task:"Промпт для «умного дома» в квартире. Бюджет 15 000 руб.", hints:["Устройства","Сценарии","Настройка","Бюджет"] },
+  { id:"ex-12", category:"Консультации", title:"Накопления", situation:"Зарплата 70 000, кредит 15 000. Хочется копить.", bad:"Как копить деньги?", good:"Ты — финансовый консультант. Доход 70 000, кредит 15 000, расходы 35 000. Цель: 200 000 за год. 1) бюджет, 2) стратегия, 3) шаги. Новичок в бюджете.", explanation:"Хороший: роль, цифры, цель, формат, контекст.", task:"Промпт: вклад или инвестфонд. 100 000 руб, 1 год, низкий риск.", hints:["Доходы/расходы","Цель","План","Опыт"] },
+  { id:"ex-13", category:"Английский язык", title:"Перевод текста", situation:"Перевести абзац и разобрать грамматику.", bad:"Переведи это", good:"Ты — преподаватель английского. Переведи текст: 1) дословно, 2) литературно, 3) грамматика, 4) 5 полезных слов с транскрипцией и примерами. Текст: [вставьте]", explanation:"Хороший: роль, задача, формат.", task:"Промпт для Present Perfect vs Past Simple с примерами.", hints:["Уровень","Примеры","Упражнения","На русском"] },
+  { id:"ex-14", category:"Английский язык", title:"Артикли", situation:"Путаюсь в a/an/the. Нужно простое объяснение.", bad:"Объясни артикли", good:"Ты — преподаватель для русскоговорящих. Артикли (a/an/the) для A2-B1. 1) логика, 2) сравнение с русским, 3) 10 примеров, 4) 5 упражнений. Без терминов.", explanation:"Хороший: роль, уровень, формат, ограничение.", task:"Промпт для фразовых глаголов с get. 10 частых с примерами.", hints:["Уровень","Примеры","Сравнение","Упражнения"] },
+  { id:"ex-15", category:"Медицина", title:"Ожог у ребёнка", situation:"Ребёнок 6 лет, небольшой ожог (покраснение, волдырь).", bad:"Что делать при ожоге?", good:"Ты — педиатр. Ребёнок 6 лет, термический ожог: покраснение, волдырь с монету на предплечье. 1) первые действия, 2) чем обработать, 3) чего НЕ делать, 4) когда к врачу. Чётко, без паники.", explanation:"Хороший: роль, контекст, задача, ограничение.", task:"Промпт: ребёнок 3 года, температура 38.5°, второй день, других симптомов нет.", hints:["Возраст","Симптомы","Алгоритм","Когда к врачу"] },
+  { id:"ex-16", category:"Медицина", title:"ЗОЖ для начинающего", situation:"Мужчина 40 лет, сидячая работа, лишний вес 15 кг.", bad:"Как начать ЗОЖ?", good:"Ты — терапевт и нутрициолог. Мужчина 40 лет: 95 кг, 178 см, сидячая работа. Цель: -15 кг за 6 мес. 1) питание, 2) активность, 3) сон, 4) контрольные точки. Новичок.", explanation:"Хороший: роль, данные, цель, формат, контекст.", task:"Промпт: витамины для женщины 35 лет (усталость, плохой сон, волосы).", hints:["Симптомы","Анализы","Образ жизни","Не замена врачу"] },
+  { id:"ex-17", category:"Право", title:"Возврат телефона", situation:"Телефон 10 дней назад, дефект. Магазин отказывает.", bad:"Можно ли вернуть телефон?", good:"Ты — юрист по защите прав потребителей. Телефон 10 дней назад, дефект (мерцание). Магазин отправляет в сервис. 1) права по закону, 2) сроки, 3) претензия, 4) куда жаловаться. Ссылки на статьи.", explanation:"Хороший: роль, контекст, задача, формат.", task:"Промпт: арендодатель не возвращает залог 30 000 руб. Квартира в порядке.", hints:["Ситуация","Суммы","Законы","Алгоритм"] },
+  { id:"ex-18", category:"Право", title:"Незаконное увольнение", situation:"Уволили «по собственному» под давлением. Ребёнок 2 лет.", bad:"Меня уволили, что делать?", good:"Ты — юрист по трудовому праву. 3 года стажа, ребёнок 2 лет. Потребовали «по собственному» под угрозой. Копии приказа нет. 1) законно ли, 2) права, 3) оспорить, 4) куда, 5) документы. Сроки, ссылки на ТК РФ.", explanation:"Хороший: роль, контекст, вопросы, ссылки.", task:"Промпт: задержка зарплаты 2 месяца. Куда обращаться, компенсации?", hints:["Срок","ТК РФ","Алгоритм","Компенсации"] }
+];
+
+const categories = [
+  {id:"all",name:"Все",icon:"📋"},
+  {id:"Бытовые задачи",name:"Бытовые",icon:"🏠"},
+  {id:"Обучение и дети",name:"Обучение",icon:"📚"},
+  {id:"Кулинария",name:"Кулинария",icon:"🍳"},
+  {id:"Техника",name:"Техника",icon:"💻"},
+  {id:"Консультации",name:"Консультации",icon:"💡"},
+  {id:"Английский язык",name:"Английский",icon:"🇬🇧"},
+  {id:"Медицина",name:"Медицина",icon:"🏥"},
+  {id:"Право",name:"Право",icon:"⚖️"}
+];
+
+const templates = [
+  {label:"🎓 Объясни простыми словами", template:"Объясни [ТЕМА] простыми словами, как если бы мне было 12 лет. Приведи 2-3 примера из жизни."},
+  {label:"📋 Пошаговый план", template:"Составь пошаговый план [ДЕЙСТВИЕ].\nКонтекст: [СИТУАЦИЯ].\nФормат: пронумерованный список."},
+  {label:"⚖️ Сравни варианты", template:"Сравни [ВАРИАНТ 1] и [ВАРИАНТ 2] по: цена, качество, удобство.\nФормат: таблица.\nРекомендация для [СИТУАЦИЯ]."},
+  {label:"✉️ Напиши текст", template:"Напиши [ТИП] для [АУДИТОРИЯ].\nТема: [ТЕМА].\nТон: [ДЕЛОВОЙ/ДРУЖЕЛЮБНЫЙ].\nОбъём: [СЛОВА]."},
+  {label:"🔧 Реши проблему", template:"Проблема: [ОПИСАНИЕ].\nЧто пробовал: [ДЕЙСТВИЯ].\nУровень: [НОВИЧОК/ОПЫТНЫЙ].\nРешения от простого к сложному."},
+  {label:"🍳 Рецепт", template:"Что приготовить из: [ПРОДУКТЫ]?\nДля: [ЧИСЛО] человек.\nВремя: до [N] минут.\nПошаговый рецепт."}
+];
+
+// ============ STATE ============
+let currentView = 'home';
+let currentSection = null;
+let currentExercise = null;
+let selectedCategory = 'all';
+let completedSections = new Set(JSON.parse(localStorage.getItem('completedSections') || '[]'));
+let completedExercises = new Set(JSON.parse(localStorage.getItem('completedExercises') || '[]'));
+let isDark = localStorage.getItem('darkMode') === 'true';
+
+// ============ INIT ============
+if (isDark) document.body.classList.add('dark');
+document.getElementById('themeBtn').textContent = isDark ? '☀️' : '🌙';
+renderSections();
+renderCategories();
+renderExercises();
+renderTemplates();
+updateProgress();
+
+// ============ FUNCTIONS ============
+function toggleTheme() {
+  isDark = !isDark;
+  document.body.classList.toggle('dark', isDark);
+  document.getElementById('themeBtn').textContent = isDark ? '☀️' : '🌙';
+  localStorage.setItem('darkMode', isDark);
+}
+
+function showView(view, data) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  
+  if (view === 'home') {
+    document.getElementById('view-home').classList.add('active');
+    document.getElementById('nav-home').classList.add('active');
+  } else if (view === 'section') {
+    currentSection = data;
+    renderSection();
+    document.getElementById('view-section').classList.add('active');
+    document.getElementById('nav-home').classList.add('active');
+  } else if (view === 'exercises') {
+    document.getElementById('view-exercises').classList.add('active');
+    document.getElementById('nav-exercises').classList.add('active');
+  } else if (view === 'exercise') {
+    currentExercise = data;
+    renderExercise();
+    document.getElementById('view-exercise').classList.add('active');
+    document.getElementById('nav-exercises').classList.add('active');
+  } else if (view === 'sandbox') {
+    document.getElementById('view-sandbox').classList.add('active');
+    document.getElementById('nav-sandbox').classList.add('active');
+    if (data) document.getElementById('sandboxPrompt').value = data;
+  }
+  currentView = view;
+  window.scrollTo(0, 0);
+}
+
+function renderSections() {
+  const grid = document.getElementById('sectionsGrid');
+  grid.innerHTML = sections.map(s => `
+    <div class="card clickable" onclick="showView('section','${s.id}')">
+      <div class="flex gap-3 items-center">
+        <div style="font-size:32px;">${s.icon}</div>
+        <div>
+          <div class="flex gap-2 items-center mb-2">
+            <h3 style="margin:0;">${s.title}</h3>
+            ${completedSections.has(s.id) ? '<span class="badge badge-green">✓</span>' : ''}
+          </div>
+          <p class="text-sm text-muted">${s.description}</p>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderSection() {
+  const s = sections.find(x => x.id === currentSection);
+  if (!s) return;
+  const content = s.content.replace(/\n/g, '<br>');
+  document.getElementById('view-section').innerHTML = `
+    <button class="btn btn-secondary mb-3" onclick="showView('home')">← К разделам</button>
+    <div class="flex gap-3 items-center mb-4">
+      <div style="font-size:40px;">${s.icon}</div>
+      <div>
+        <h1>${s.title}</h1>
+        <p class="text-muted text-sm">${s.description}</p>
+      </div>
+    </div>
+    <div class="card"><h3>📖 Пояснение</h3><div class="text-sm mt-3">${content}</div></div>
+    <div class="card good">
+      <h3>✅ Хороший промпт</h3>
+      <pre class="mt-3 mb-3">${s.good}</pre>
+      <button class="btn btn-success" onclick="showView('sandbox',\`${s.good.replace(/`/g,'\\`').replace(/\\/g,'\\\\')}\`)">🧪 В песочницу</button>
+    </div>
+    <div class="card bad">
+      <h3>❌ Плохой промпт</h3>
+      <pre class="mt-3">${s.bad}</pre>
+    </div>
+    <div class="card info">
+      <h3>💡 Почему так?</h3>
+      <p class="text-sm mt-3">${s.explanation}</p>
+    </div>
+    <div class="card">
+      <h3>💡 Ключевые правила</h3>
+      <ul class="mt-3">${s.tips.map(t => `<li class="text-sm">${t}</li>`).join('')}</ul>
+    </div>
+    <div class="card" style="background:#fefce8;border-color:#fde047;">
+      <h3>📌 Главный вывод</h3>
+      <p class="text-sm mt-3"><b>${s.takeaway}</b></p>
+    </div>
+    <div class="flex justify-between mt-4" style="border-top:1px solid #e2e8f0;padding-top:16px;">
+      <button class="btn btn-secondary" onclick="showView('home')">← К разделам</button>
+      ${!completedSections.has(s.id) 
+        ? `<button class="btn btn-success" onclick="markSection('${s.id}')">✓ Изучено</button>`
+        : '<span class="badge badge-green">✓ Изучено</span>'}
+      <button class="btn btn-primary" onclick="showView('sandbox','')">🧪 Песочница →</button>
+    </div>
+  `;
+}
+
+function markSection(id) {
+  completedSections.add(id);
+  localStorage.setItem('completedSections', JSON.stringify([...completedSections]));
+  updateProgress();
+  renderSection();
+  renderSections();
+}
+
+function renderCategories() {
+  document.getElementById('categoryFilter').innerHTML = categories.map(c => `
+    <button class="btn ${selectedCategory === c.id ? 'btn-primary' : 'btn-secondary'}" onclick="filterCategory('${c.id}')">${c.icon} ${c.name}</button>
+  `).join('');
+}
+
+function filterCategory(id) {
+  selectedCategory = id;
+  renderCategories();
+  renderExercises();
+}
+
+function renderExercises() {
+  const filtered = selectedCategory === 'all' ? exercises : exercises.filter(e => e.category === selectedCategory);
+  document.getElementById('exercisesList').innerHTML = filtered.map(e => `
+    <div class="card clickable" onclick="showView('exercise','${e.id}')">
+      <div class="flex justify-between items-center">
+        <div>
+          <div class="flex gap-2 items-center mb-2">
+            <span class="badge badge-gray">${e.category}</span>
+            ${completedExercises.has(e.id) ? '<span class="badge badge-green">✓</span>' : ''}
+          </div>
+          <h3 style="margin:0;">${e.title}</h3>
+          <p class="text-sm text-muted mt-2">${e.situation}</p>
+        </div>
+        <button class="btn btn-primary">Решить →</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderExercise() {
+  const e = exercises.find(x => x.id === currentExercise);
+  if (!e) return;
+  document.getElementById('view-exercise').innerHTML = `
+    <button class="btn btn-secondary mb-3" onclick="showView('exercises')">← К заданиям</button>
+    <div class="flex gap-2 items-center mb-2">
+      <span class="badge badge-gray">${e.category}</span>
+      ${completedExercises.has(e.id) ? '<span class="badge badge-green">✓ Выполнено</span>' : ''}
+    </div>
+    <h1>${e.title}</h1>
+    <div class="card"><h3>📋 Ситуация</h3><p class="text-sm mt-3">${e.situation}</p></div>
+    <div class="card bad"><h3>❌ Слабый промпт</h3><pre class="mt-3">${e.bad}</pre></div>
+    <div class="card good">
+      <h3>✅ Сильный промпт</h3>
+      <pre class="mt-3 mb-3">${e.good}</pre>
+      <button class="btn btn-success" onclick="showView('sandbox',\`${e.good.replace(/`/g,'\\`')}\`)">🧪 В QWEN</button>
+    </div>
+    <div class="card info"><h3>💡 Разбор</h3><p class="text-sm mt-3">${e.explanation}</p></div>
+    <div class="card">
+      <h3>🎯 Ваше задание</h3>
+      <p class="text-sm mt-3 mb-3">${e.task}</p>
+      <details class="mb-3" style="padding:12px;border:1px solid #e2e8f0;border-radius:6px;">
+        <summary class="text-sm">💡 Подсказки</summary>
+        <ul class="mt-3">${e.hints.map(h => `<li class="text-sm">${h}</li>`).join('')}</ul>
+      </details>
+      <label class="text-sm" style="font-weight:500;">✍️ Ваш промпт:</label>
+      <textarea id="userPrompt" placeholder="Напишите свой промпт..." class="mt-3"></textarea>
+      <div class="text-xs text-muted mt-2" id="charCount">Символов: 0 | Слов: 0</div>
+      <div class="flex gap-2 mt-3 flex-wrap">
+        <button class="btn btn-primary" onclick="analyzePrompt()">🔍 Проверить</button>
+        <button class="btn btn-success" onclick="sendToSandbox()">🧪 В песочницу</button>
+        ${!completedExercises.has(e.id) ? `<button class="btn" style="background:#9333ea;color:white;" onclick="markExercise('${e.id}')">✓ Выполнено</button>` : ''}
+      </div>
+      <div id="feedback" class="mt-3 hidden"></div>
+    </div>
+  `;
+  document.getElementById('userPrompt').addEventListener('input', updateCharCount);
+}
+
+function updateCharCount() {
+  const val = document.getElementById('userPrompt').value;
+  const words = val.trim() ? val.trim().split(/\s+/).length : 0;
+  document.getElementById('charCount').textContent = `Символов: ${val.length} | Слов: ${words}`;
+}
+
+function analyzePrompt() {
+  const prompt = document.getElementById('userPrompt').value;
+  const e = exercises.find(x => x.id === currentExercise);
+  if (!prompt.trim()) { alert('Напишите промпт'); return; }
+  
+  const checks = [];
+  const p = prompt.toLowerCase();
+  
+  if (prompt.length < 20) checks.push('⚠️ Слишком короткий. Добавьте деталей.');
+  else checks.push('✅ Хорошая длина.');
+  
+  if (['я ','мне ','мой ','хочу','нужно','проблема','ситуация'].some(w => p.includes(w))) checks.push('✅ Есть контекст.');
+  else checks.push('⚠️ Добавьте контекст.');
+  
+  if (['руб','минут','часов','лет','метр','кг','человек'].some(w => p.includes(w))) checks.push('✅ Есть конкретные параметры.');
+  else checks.push('💡 Добавьте конкретику: числа, размеры, сроки.');
+  
+  if (['список','таблиц','пошагов','план','формат'].some(w => p.includes(w))) checks.push('✅ Указан формат.');
+  else checks.push('💡 Укажите формат: список, таблица, инструкция.');
+  
+  if (['ты —','ты -','специалист','эксперт','учитель','врач','юрист','мастер'].some(w => p.includes(w))) checks.push('✅ Указана роль.');
+  else checks.push('💡 Добавьте роль: «Ты — опытный специалист...»');
+  
+  const w1 = new Set(prompt.toLowerCase().split(/\s+/).filter(w => w.length > 2));
+  const w2 = new Set(e.good.toLowerCase().split(/\s+/).filter(w => w.length > 2));
+  const sim = [...w1].filter(w => w2.has(w)).length / Math.max(w2.size, 1);
+  if (sim > 0.5) checks.push('🎯 Близок к идеальному!');
+  else if (sim > 0.25) checks.push('📈 Хорошее начало! Добавьте деталей.');
+  else checks.push('🔄 Посмотрите на пример хорошего промпта.');
+  
+  const fb = document.getElementById('feedback');
+  fb.className = 'mt-3 card';
+  fb.innerHTML = `<h3>📊 Анализ:</h3><div class="mt-3">${checks.map(c => `<p class="text-sm mb-2">${c}</p>`).join('')}</div>`;
+}
+
+function sendToSandbox() {
+  const prompt = document.getElementById('userPrompt').value;
+  if (!prompt.trim()) { alert('Напишите промпт'); return; }
+  showView('sandbox', prompt);
+}
+
+function markExercise(id) {
+  completedExercises.add(id);
+  localStorage.setItem('completedExercises', JSON.stringify([...completedExercises]));
+  updateProgress();
+  renderExercise();
+  renderExercises();
+}
+
+function updateProgress() {
+  const total = sections.length + exercises.length;
+  const done = completedSections.size + completedExercises.size;
+  document.getElementById('progressBar').style.width = `${Math.round(done/total*100)}%`;
+}
+
+function copySandboxPrompt() {
+  const prompt = document.getElementById('sandboxPrompt').value;
+  if (!prompt.trim()) { alert('Напишите промпт'); return; }
+  navigator.clipboard.writeText(prompt).then(() => {
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = '✓ Скопировано!';
+    setTimeout(() => btn.textContent = orig, 2000);
+  });
+}
+
+function renderTemplates() {
+  document.getElementById('templates').innerHTML = templates.map(t => `
+    <button class="btn btn-secondary mb-2" style="display:block;width:100%;text-align:left;white-space:normal;" onclick="document.getElementById('sandboxPrompt').value=\`${t.template.replace(/`/g,'\\`')}\`">
+      <b>${t.label}</b>
+      <div class="text-xs text-muted mt-1" style="font-family:monospace;">${t.template.substring(0,60)}...</div>
+    </button>
+  `).join('');
+}
+</script>
+</body>
+</html>
